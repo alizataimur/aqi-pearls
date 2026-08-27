@@ -1,0 +1,7 @@
+# Files that execute on Linux runners must keep LF regardless of platform.
+* text=auto
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Makefile text eol=lf
+*.tar.gz binary
