@@ -129,19 +129,23 @@ class TestWeatherArchive:
 
 class TestHistoricalForecast:
     def test_shares_variable_list_with_era5_archive(self) -> None:
-        assert (
-            open_meteo_hist_forecast.HOURLY_VARIABLES == open_meteo_weather.HOURLY_VARIABLES
-        )
+        hist_vars = open_meteo_hist_forecast.HOURLY_VARIABLES
+        era5_vars = open_meteo_weather.HOURLY_VARIABLES
+        assert hist_vars == era5_vars
 
     def test_parse_tags_source_as_historical_forecast(self) -> None:
         payload = {"hourly": {"time": ["2024-01-01T00:00"], "temperature_2m": [11.0]}}
-        frame = open_meteo_hist_forecast.parse_historical_forecast(payload, city_id="lahore")
+        frame = open_meteo_hist_forecast.parse_historical_forecast(
+            payload, city_id="lahore"
+        )
         assert frame["source"].tolist() == ["historical_forecast"]
 
     def test_different_endpoint_from_era5_archive(self) -> None:
         assert open_meteo_hist_forecast.BASE_URL != open_meteo_weather.BASE_URL
 
-    def test_missing_hourly_block_is_an_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_missing_hourly_block_is_an_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(open_meteo_hist_forecast, "get_json", lambda *a, **k: {})
         with pytest.raises(open_meteo_hist_forecast.HistoricalForecastError):
             open_meteo_hist_forecast.fetch_historical_forecast(

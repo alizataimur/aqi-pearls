@@ -10,8 +10,8 @@ load_dotenv()
 token = os.environ["AQICN_TOKEN"]
 
 paths = [
-    "geo:33.6844;73.0479",      # what clock_starter sends now
-    "geo:33.6844%3B73.0479",    # semicolon percent-encoded
+    "geo:33.6844;73.0479",  # what clock_starter sends now
+    "geo:33.6844%3B73.0479",  # semicolon percent-encoded
     "islamabad",
     "lahore",
     "here",

@@ -197,7 +197,7 @@ def main() -> int:
     print("[2/4] probing CAMS history floor (binary search, ~10 requests) ...")
     report["cams_floor"] = probe_cams_floor(cities[0])
 
-    print("[3/4] probing Open-Meteo response shapes (air quality, ERA5, hist forecast) ...")
+    print("[3/4] probing Open-Meteo response shapes (air, ERA5, hist forecast) ...")
     report["open_meteo_schemas"] = probe_open_meteo_schemas(cities[0])
 
     token = os.environ.get("AQICN_TOKEN", "").strip()

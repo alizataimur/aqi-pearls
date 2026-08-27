@@ -40,8 +40,9 @@ sources:
     domain: cams_global          # pinned explicitly, never 'auto' (CLAUDE.md §8.2)
   aqicn:
     feed: https://api.waqi.info/feed
-  # Set from the probe, not invented. CAMS global history starts ~2022-08.
-  backfill_start: null
+  # Set from scripts/probe_sources.py's binary search (docs/schemas/probe_report.json),
+  # not invented (CLAUDE.md §8.2).
+  backfill_start: "2022-08-04"
 
 store:
   backend: parquet               # parquet | hopsworks
