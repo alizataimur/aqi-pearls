@@ -1,0 +1,89 @@
+{
+  "data": {
+    "aqi": "int",
+    "attributions": [
+      {
+        "logo": "str",
+        "name": "str",
+        "url": "str"
+      }
+    ],
+    "city": {
+      "geo": [
+        "float"
+      ],
+      "location": "str",
+      "name": "str",
+      "url": "str"
+    },
+    "debug": {
+      "sync": "str"
+    },
+    "dominentpol": "str",
+    "forecast": {
+      "daily": {
+        "pm10": [
+          "..."
+        ],
+        "pm25": [
+          "..."
+        ],
+        "uvi": [
+          "..."
+        ]
+      }
+    },
+    "iaqi": {
+      "co": {
+        "v": "float"
+      },
+      "dew": {
+        "v": "float"
+      },
+      "h": {
+        "v": "int"
+      },
+      "no2": {
+        "v": "float"
+      },
+      "o3": {
+        "v": "float"
+      },
+      "p": {
+        "v": "float"
+      },
+      "pm10": {
+        "v": "int"
+      },
+      "pm25": {
+        "v": "int"
+      },
+      "r": {
+        "v": "float"
+      },
+      "so2": {
+        "v": "float"
+      },
+      "t": {
+        "v": "float"
+      },
+      "w": {
+        "v": "float"
+      },
+      "wd": {
+        "v": "float"
+      },
+      "wg": {
+        "v": "float"
+      }
+    },
+    "idx": "int",
+    "time": {
+      "iso": "str",
+      "s": "str",
+      "tz": "str",
+      "v": "int"
+    }
+  },
+  "status": "str"
+}

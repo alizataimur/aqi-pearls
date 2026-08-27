@@ -23,6 +23,7 @@ when it drifts.
 from __future__ import annotations
 
 import json
+import math
 import random
 import time
 import urllib.error
@@ -31,14 +32,22 @@ from typing import Any
 
 DEFAULT_BASE = "https://api.waqi.info/feed"
 
+# How far a returned station may sit from its configured city before the
+# capture is rejected. Generous enough for a metro-area station, far tighter
+# than the ~690 km miss that ADR-007 was written about.
+MAX_STATION_DRIFT_KM = 60.0
+
 
 class AQICNError(RuntimeError):
     """Raised when the feed cannot be retrieved or reports a non-ok status."""
 
 
+class StationMismatchError(AQICNError):
+    """The feed returned a station that is not where the config says it is."""
+
+
 def fetch_feed(
-    lat: float,
-    lon: float,
+    station: str,
     token: str,
     *,
     base_url: str = DEFAULT_BASE,
@@ -47,7 +56,15 @@ def fetch_feed(
     max_delay: float = 30.0,
     timeout: float = 20.0,
 ) -> dict[str, Any]:
-    """Fetch the station feed nearest to (lat, lon).
+    """Fetch a **pinned** station feed.
+
+    ``station`` is an AQICN identifier: ``"@11739"`` for a station index, or a
+    city slug such as ``"islamabad"``. Never a ``geo:`` lookup — see ADR-007.
+    Nearest-station lookup returned a Delhi station for all three Pakistani
+    cities (AQICN appears to fall back to IP geolocation and ignore the
+    coordinates), and even when it works it is unstable: a station added
+    nearby silently switches the instrument mid-series, which quietly
+    invalidates every comparison built on the ledger.
 
     Retries with exponential backoff plus jitter. Raises :class:`AQICNError`
     after the final attempt — the caller decides whether one city failing
@@ -55,8 +72,13 @@ def fetch_feed(
     """
     if not token:
         raise AQICNError("AQICN_TOKEN is empty — set it in the environment")
+    if station.startswith("geo:"):
+        raise AQICNError(
+            f"geo: lookups are forbidden (ADR-007), got {station!r}. "
+            "Pin a station id such as '@11739' in conf/cities.yaml."
+        )
 
-    url = f"{base_url}/geo:{lat};{lon}/?token={token}"
+    url = f"{base_url}/{station}/?token={token}"
     last_error: Exception | None = None
 
     for attempt in range(attempts):
@@ -90,6 +112,50 @@ def fetch_feed(
             time.sleep(delay + random.uniform(0, delay * 0.3))
 
     raise AQICNError(f"failed after {attempts} attempts: {last_error}")
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    radius = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * radius * math.asin(math.sqrt(a))
+
+
+def verify_station(
+    payload: dict[str, Any],
+    expected_lat: float,
+    expected_lon: float,
+    *,
+    max_km: float = MAX_STATION_DRIFT_KM,
+) -> float:
+    """Assert the station we received is the station we asked for.
+
+    Every capture is checked, because the failure this guards against is
+    silent and unrecoverable: a feed that returns the wrong station still
+    returns `status: "ok"` and a plausible AQI, and by the time anyone notices,
+    weeks of ledger rows are labelled with a city they never described. AQICN
+    has no history endpoint, so those hours cannot be re-fetched (I3).
+
+    Returns the distance in km so the caller can log it. Raises
+    :class:`StationMismatchError` past ``max_km``.
+    """
+    city = (payload.get("data", {}) or {}).get("city", {}) or {}
+    geo = city.get("geo")
+    if not (isinstance(geo, list) and len(geo) >= 2):
+        raise StationMismatchError(
+            f"feed carries no station coordinates to verify: {city.get('name')!r}"
+        )
+
+    distance = _haversine_km(expected_lat, expected_lon, float(geo[0]), float(geo[1]))
+    if distance > max_km:
+        raise StationMismatchError(
+            f"station {city.get('name')!r} at {geo} is {distance:.0f} km from the "
+            f"configured location ({expected_lat}, {expected_lon}) — refusing to "
+            "write it to the ledger"
+        )
+    return distance
 
 
 def extract_observation(payload: dict[str, Any]) -> dict[str, Any]:

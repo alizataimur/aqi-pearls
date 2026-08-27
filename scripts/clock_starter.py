@@ -43,6 +43,7 @@ from aqi.sources.aqicn import (  # noqa: E402
     extract_forecast,
     extract_observation,
     fetch_feed,
+    verify_station,
 )
 
 LEDGER = REPO_ROOT / "data" / "ledger"
@@ -142,7 +143,19 @@ def capture_city(city: dict[str, Any], token: str, now: datetime, dry_run: bool)
     city_id = str(city.get("id", "unknown"))
     month = now.strftime("%Y-%m")
 
-    payload = fetch_feed(float(city["lat"]), float(city["lon"]), token)
+    station = city.get("aqicn_station")
+    if not station:
+        raise ValueError(
+            f"{city_id} has no aqicn_station pinned in conf/cities.yaml. "
+            "Run scripts/diagnose_aqicn.py to find one — geo: lookup is "
+            "forbidden (ADR-007)."
+        )
+
+    payload = fetch_feed(str(station), token)
+    # Refuse to write a station that is not where the config says it is. The
+    # failure this catches returns status "ok" and a plausible AQI, so nothing
+    # downstream would notice (ADR-007).
+    distance_km = verify_station(payload, float(city["lat"]), float(city["lon"]))
 
     # Keep the untouched response. A transform bug must never mean a lost
     # capture, and the schema is not reliably documented (CLAUDE.md §8.2).
@@ -154,6 +167,8 @@ def capture_city(city: dict[str, Any], token: str, now: datetime, dry_run: bool)
     observation_record = {
         "captured_at_utc": now.isoformat(),
         "city_id": city_id,
+        "station_id": str(station),
+        "station_distance_km": round(distance_km, 2),
         **observation,
     }
 
@@ -223,9 +238,15 @@ def main() -> int:
         print("no cities configured in conf/cities.yaml", file=sys.stderr)
         return 1
 
-    captured, failed = [], []
+    captured, failed, skipped = [], [], []
     for city in cities:
         city_id = str(city.get("id", "unknown"))
+        if not city.get("aqicn_station"):
+            # Deliberate, not a failure: a city with no pinned station is
+            # skipped rather than handed a neighbour's instrument. Kept out of
+            # `failed` so it cannot mask a real outage.
+            skipped.append(city_id)
+            continue
         try:
             capture_city(city, token, now, args.dry_run)
             captured.append(city_id)
@@ -240,6 +261,7 @@ def main() -> int:
                 "captured_at_utc": now.isoformat(),
                 "captured": captured,
                 "failed": failed,
+                "skipped": skipped,
                 "dry_run": args.dry_run,
             }
         )

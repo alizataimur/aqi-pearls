@@ -1,21 +1,33 @@
-# Forecast zones. Multi-city is a config change, never a code change (CLAUDE.md §16).
+# Forecast zones and their instruments.
 #
-# cams_grid is deliberately null until `make probe` fills it in. CLAUDE.md §8.2
-# flags that Islamabad and Rawalpindi very likely land in the SAME ~0.4 degree
-# CAMS cell — if they do, they are one forecast zone with two labels, and the
-# report must say so rather than presenting them as independently modelled.
-# Do not guess these values; run the probe.
+# Two findings from the Stage 0 probe on 2026-08-27 shape this file. Both are
+# empirical; neither was assumed.
+#
+# 1. CAMS returns byte-identical PM2.5 series for Islamabad (served grid
+#    33.700005, 73.0) and Rawalpindi (33.6, 73.0). The 0.1 degree output grid
+#    is cosmetic — CAMS global cannot resolve the twin cities. They are ONE
+#    forecast zone with two names (ADR-008). Lahore is genuinely separate.
+#
+# 2. AQICN's geo: lookup ignores the coordinates entirely and returns an
+#    IP-geolocated station — a Delhi station, ~690 km away, for all three
+#    cities. Stations are therefore PINNED by index, never looked up
+#    (ADR-007). Every capture verifies the station is where this file says.
+#
+# aqicn_station: find one with `python scripts/diagnose_aqicn.py`, then pin the
+# '@<idx>' form. Do not substitute a nearby city's station — a wrong instrument
+# writes plausible-looking rows that quietly invalidate every metric built on
+# them.
 
 cities:
   - id: islamabad
     name_en: Islamabad
     name_ur: اسلام آباد
-    lat: 33.6844
-    lon: 73.0479
+    lat: 33.7235          # the STATION's coordinates — what verify_station checks
+    lon: 73.11822
     timezone: Asia/Karachi
-    aqicn_station: null      # filled by probe; geo: lookup used until then
-    cams_grid: null          # [lat, lon] returned by Open-Meteo — filled by probe
-    zone: capital            # zone, not city, is the modelling unit
+    aqicn_station: "@11739"     # Islamabad US Embassy, Pakistan
+    cams_grid: [33.700005, 73.0]
+    zone: capital
 
   - id: rawalpindi
     name_en: Rawalpindi
@@ -23,19 +35,24 @@ cities:
     lat: 33.5651
     lon: 73.0169
     timezone: Asia/Karachi
+    # No pinned station yet. Check `python scripts/diagnose_aqicn.py` after
+    # adding "rawalpindi" to its path list. If none exists, leave this null:
+    # the clock starter skips unpinned cities rather than borrowing
+    # Islamabad's instrument, which would fabricate a second series out of
+    # one measurement.
     aqicn_station: null
-    cams_grid: null
-    zone: capital            # provisionally the same zone as Islamabad
+    cams_grid: [33.6, 73.0]     # identical data to Islamabad's cell — see ADR-008
+    zone: capital               # same zone as Islamabad, confirmed empirically
 
-  # Second zone: far enough away to be a genuinely distinct CAMS cell, and the
-  # most severe smog in the country. Two real zones is the honest maximum
-  # (CLAUDE.md §4) — resist adding Karachi and Peshawar for the row count.
   - id: lahore
     name_en: Lahore
     name_ur: لاہور
-    lat: 31.5497
-    lon: 74.3436
+    lat: 31.560078
+    lon: 74.33589
     timezone: Asia/Karachi
-    aqicn_station: null
-    cams_grid: null
+    aqicn_station: "@11765"     # Lahore US Embassy, Pakistan
+    cams_grid: [31.5, 74.3]
     zone: lahore
+
+# Two zones is the honest maximum (CLAUDE.md §4). Adding Karachi or Peshawar
+# adds rows to a table, not evidence to the report.

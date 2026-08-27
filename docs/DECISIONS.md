@@ -126,3 +126,67 @@ irreplaceable AQICN readings on every CI run).
 **Consequence:** roughly three small JSONL files per day. Trivial in size, and it
 means a bug in `extract_observation` is repairable months later by replaying the
 raw captures rather than being a permanent hole in the ledger.
+
+---
+
+## ADR-007 — Pin AQICN stations by index; never use geo: lookup
+
+**Status:** accepted · 2026-08-27
+**Severity:** would have silently invalidated the entire benchmark.
+
+The Stage 0 dry run returned the same station — *Pooth Khurd, Bawana, Delhi,
+India* at (28.78, 77.05) — for Islamabad, Rawalpindi **and** Lahore, with
+`status: "ok"`, a plausible AQI, and an identical forecast hash. The `geo:`
+endpoint returns the same result as `here`, i.e. AQICN geolocates the caller's
+IP and ignores the supplied coordinates. Percent-encoding the semicolon changes
+nothing.
+
+Named lookups work correctly and expose stable indices:
+`islamabad` → Islamabad US Embassy, idx **11739**; `lahore` → Lahore US
+Embassy, idx **11765**.
+
+**Chosen:** pin `@<idx>` per city in `conf/cities.yaml`; `fetch_feed` raises on
+any `geo:` argument; every capture calls `verify_station`, which rejects a
+station more than 60 km from the configured coordinates before anything is
+written to the ledger.
+
+**Rejected:** keeping `geo:` with a wider retry (the coordinates are ignored, so
+retrying cannot help); accepting the Delhi station on the argument that Indian
+and Pakistani Punjab share environmental drivers — the same probe recorded
+Delhi at AQI 183 while Lahore was 34, a factor of five apart in the same hour,
+and Islamabad sits on the Potohar plateau outside the Indo-Gangetic basin
+entirely. Correlated in smog season is not substitutable hour by hour.
+
+**Consequence:** the wrong-instrument failure is now loud rather than silent.
+This is the class of bug I3 and I4 exist to prevent: `status: "ok"` plus a
+believable number, no history endpoint to repair it from, and by the time
+anyone noticed, weeks of rows labelled `islamabad` describing another country.
+Rawalpindi has no pinned station yet and is **skipped**, not given Islamabad's
+instrument — one measurement must not be written as two series.
+
+---
+
+## ADR-008 — Islamabad and Rawalpindi are one forecast zone
+
+**Status:** accepted · 2026-08-27
+**Settles:** the open question flagged in CLAUDE.md §8.2.
+
+Open-Meteo serves CAMS on a 0.1° output grid and returns distinct coordinates
+for the twin cities — 33.700005 for Islamabad, 33.6 for Rawalpindi. That looks
+like two resolved locations. It is not: the returned PM2.5 arrays are
+**byte-identical**. CAMS global's native ~0.4° resolution cannot separate
+cities 13 km apart, and the finer output grid is interpolation, not
+information.
+
+**Chosen:** two forecast zones — `capital` (Islamabad + Rawalpindi) and
+`lahore`. Model the zone once.
+
+**Rejected:** three independently modelled cities. The coordinates would have
+supported the claim; the data does not.
+
+**Consequence:** exactly the two genuinely distinct zones CLAUDE.md §4 called
+for, now with proof rather than an assumption. It also sharpens the
+model-vs-station divergence analysis: two real instruments inside one model
+grid cell quantify how much within-zone variation the model structurally
+cannot see — which is a finding worth reporting for Pakistan, where station
+density is low and this has not been published.

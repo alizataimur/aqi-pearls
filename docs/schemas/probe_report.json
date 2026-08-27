@@ -1,0 +1,140 @@
+{
+  "probed_on": "2026-08-27",
+  "grid_cells": {
+    "islamabad": {
+      "requested": [
+        33.6844,
+        73.0479
+      ],
+      "served_grid": [
+        33.700005,
+        73.0
+      ]
+    },
+    "rawalpindi": {
+      "requested": [
+        33.5651,
+        73.0169
+      ],
+      "served_grid": [
+        33.6,
+        73.0
+      ]
+    },
+    "lahore": {
+      "requested": [
+        31.5497,
+        74.3436
+      ],
+      "served_grid": [
+        31.5,
+        74.3
+      ]
+    },
+    "_collisions": {}
+  },
+  "cams_floor": {
+    "city": "islamabad",
+    "earliest_date_with_data": "2022-08-04",
+    "probes_used": 11,
+    "note": "set sources.backfill_start in conf/config.yaml from this"
+  },
+  "aqicn": {
+    "probed_city": "islamabad",
+    "has_forecast_block": true,
+    "forecast_pollutants": [
+      "pm10",
+      "pm25",
+      "uvi"
+    ],
+    "schema": {
+      "data": {
+        "aqi": "int",
+        "attributions": [
+          {
+            "logo": "str",
+            "name": "str",
+            "url": "str"
+          }
+        ],
+        "city": {
+          "geo": [
+            "float"
+          ],
+          "location": "str",
+          "name": "str",
+          "url": "str"
+        },
+        "debug": {
+          "sync": "str"
+        },
+        "dominentpol": "str",
+        "forecast": {
+          "daily": {
+            "pm10": [
+              "..."
+            ],
+            "pm25": [
+              "..."
+            ],
+            "uvi": [
+              "..."
+            ]
+          }
+        },
+        "iaqi": {
+          "co": {
+            "v": "float"
+          },
+          "dew": {
+            "v": "float"
+          },
+          "h": {
+            "v": "int"
+          },
+          "no2": {
+            "v": "float"
+          },
+          "o3": {
+            "v": "float"
+          },
+          "p": {
+            "v": "float"
+          },
+          "pm10": {
+            "v": "int"
+          },
+          "pm25": {
+            "v": "int"
+          },
+          "r": {
+            "v": "float"
+          },
+          "so2": {
+            "v": "float"
+          },
+          "t": {
+            "v": "float"
+          },
+          "w": {
+            "v": "float"
+          },
+          "wd": {
+            "v": "float"
+          },
+          "wg": {
+            "v": "float"
+          }
+        },
+        "idx": "int",
+        "time": {
+          "iso": "str",
+          "s": "str",
+          "tz": "str",
+          "v": "int"
+        }
+      },
+      "status": "str"
+    }
+  }
+}
