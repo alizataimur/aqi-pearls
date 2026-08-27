@@ -186,7 +186,10 @@ def ugm3_to_epa_units(value: float, pollutant: Pollutant) -> float:
 
 
 def _truncate(value: float, places: int) -> float:
-    factor = 10**places
+    # `int ** int` is typed Any in typeshed (the result can be int or float for
+    # a negative exponent), which propagates Any through the whole expression
+    # and trips mypy --strict. The annotation pins it.
+    factor: int = 10**places
     return math.floor(value * factor) / factor
 
 

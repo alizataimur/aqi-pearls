@@ -1,0 +1,57 @@
+{
+  "elevation": "float",
+  "generationtime_ms": "float",
+  "hourly": {
+    "aerosol_optical_depth": [
+      "float"
+    ],
+    "carbon_monoxide": [
+      "float"
+    ],
+    "dust": [
+      "float"
+    ],
+    "nitrogen_dioxide": [
+      "float"
+    ],
+    "ozone": [
+      "float"
+    ],
+    "pm10": [
+      "float"
+    ],
+    "pm2_5": [
+      "float"
+    ],
+    "sulphur_dioxide": [
+      "float"
+    ],
+    "time": [
+      "str"
+    ],
+    "us_aqi": [
+      "int"
+    ],
+    "us_aqi_pm2_5": [
+      "int"
+    ]
+  },
+  "hourly_units": {
+    "aerosol_optical_depth": "str",
+    "carbon_monoxide": "str",
+    "dust": "str",
+    "nitrogen_dioxide": "str",
+    "ozone": "str",
+    "pm10": "str",
+    "pm2_5": "str",
+    "sulphur_dioxide": "str",
+    "time": "str",
+    "us_aqi": "str",
+    "us_aqi_pm2_5": "str"
+  },
+  "latitude": "float",
+  "longitude": "float",
+  "timezone": "str",
+  "timezone_abbreviation": "str",
+  "utc_offset_seconds": "int"
+}

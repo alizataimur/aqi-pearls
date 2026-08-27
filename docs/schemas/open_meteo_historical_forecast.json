@@ -1,0 +1,65 @@
+{
+  "elevation": "float",
+  "generationtime_ms": "float",
+  "hourly": {
+    "boundary_layer_height": [
+      "float"
+    ],
+    "cloud_cover": [
+      "int"
+    ],
+    "dew_point_2m": [
+      "float"
+    ],
+    "precipitation": [
+      "float"
+    ],
+    "relative_humidity_2m": [
+      "int"
+    ],
+    "shortwave_radiation": [
+      "float"
+    ],
+    "surface_pressure": [
+      "float"
+    ],
+    "temperature_2m": [
+      "float"
+    ],
+    "temperature_850hPa": [
+      "float"
+    ],
+    "time": [
+      "str"
+    ],
+    "wind_direction_10m": [
+      "int"
+    ],
+    "wind_gusts_10m": [
+      "float"
+    ],
+    "wind_speed_10m": [
+      "float"
+    ]
+  },
+  "hourly_units": {
+    "boundary_layer_height": "str",
+    "cloud_cover": "str",
+    "dew_point_2m": "str",
+    "precipitation": "str",
+    "relative_humidity_2m": "str",
+    "shortwave_radiation": "str",
+    "surface_pressure": "str",
+    "temperature_2m": "str",
+    "temperature_850hPa": "str",
+    "time": "str",
+    "wind_direction_10m": "str",
+    "wind_gusts_10m": "str",
+    "wind_speed_10m": "str"
+  },
+  "latitude": "float",
+  "longitude": "float",
+  "timezone": "str",
+  "timezone_abbreviation": "str",
+  "utc_offset_seconds": "int"
+}

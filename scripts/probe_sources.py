@@ -16,6 +16,10 @@ Three questions the build must not guess at:
      observed payload is snapshotted to docs/schemas/ and pinned by a contract
      test.
 
+Also snapshots the three Open-Meteo response shapes (air quality, ERA5
+archive, historical forecast) to docs/schemas/ — those endpoints are
+versioned and stable, but "stable" is an assumption worth pinning too.
+
 Writes its findings to docs/schemas/ and prints a summary you paste into
 docs/STATE.md and docs/DECISIONS.md.
 
@@ -117,19 +121,20 @@ def probe_cams_floor(city: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def shape(value: Any, depth: int = 0) -> Any:
+    """Type skeleton, not values — this is a contract, not a fixture."""
+    if depth > 4:
+        return "..."
+    if isinstance(value, dict):
+        return {k: shape(v, depth + 1) for k, v in sorted(value.items())}
+    if isinstance(value, list):
+        return [shape(value[0], depth + 1)] if value else []
+    return type(value).__name__
+
+
 def probe_aqicn_schema(cities: list[dict[str, Any]], token: str) -> dict[str, Any]:
     """Question 3 — snapshot the observed payload shape."""
     from aqi.sources.aqicn import fetch_feed
-
-    def shape(value: Any, depth: int = 0) -> Any:
-        """Type skeleton, not values — this is a contract, not a fixture."""
-        if depth > 4:
-            return "..."
-        if isinstance(value, dict):
-            return {k: shape(v, depth + 1) for k, v in sorted(value.items())}
-        if isinstance(value, list):
-            return [shape(value[0], depth + 1)] if value else []
-        return type(value).__name__
 
     city = cities[0]
     payload = fetch_feed(float(city["lat"]), float(city["lon"]), token)
@@ -147,6 +152,39 @@ def probe_aqicn_schema(cities: list[dict[str, Any]], token: str) -> dict[str, An
     }
 
 
+def probe_open_meteo_schemas(city: dict[str, Any]) -> dict[str, Any]:
+    """Snapshot the three Open-Meteo response shapes for one city.
+
+    Small requests only (one day) — this is a shape check, not a data pull.
+    """
+    from aqi.sources.open_meteo_air import fetch_air_quality
+    from aqi.sources.open_meteo_hist_forecast import fetch_historical_forecast
+    from aqi.sources.open_meteo_weather import fetch_weather_archive
+
+    yesterday = (date.today() - timedelta(days=2)).isoformat()
+    today = (date.today() - timedelta(days=1)).isoformat()
+    lat, lon = float(city["lat"]), float(city["lon"])
+
+    results: dict[str, Any] = {}
+    probes = {
+        "air_quality": lambda: fetch_air_quality(lat, lon, past_days=1),
+        "weather_archive": lambda: fetch_weather_archive(lat, lon, yesterday, today),
+        "historical_forecast": lambda: fetch_historical_forecast(
+            lat, lon, yesterday, today
+        ),
+    }
+    for name, probe in probes.items():
+        try:
+            payload = probe()
+            results[name] = shape(payload)
+            (SCHEMAS / f"open_meteo_{name}.json").write_text(
+                json.dumps(results[name], indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        except Exception as exc:
+            results[name] = {"error": str(exc)}
+    return results
+
+
 def main() -> int:
     load_dotenv()
     SCHEMAS.mkdir(parents=True, exist_ok=True)
@@ -156,12 +194,15 @@ def main() -> int:
     print("[1/3] probing CAMS grid cells ...")
     report["grid_cells"] = probe_grid_cells(cities)
 
-    print("[2/3] probing CAMS history floor (binary search, ~10 requests) ...")
+    print("[2/4] probing CAMS history floor (binary search, ~10 requests) ...")
     report["cams_floor"] = probe_cams_floor(cities[0])
+
+    print("[3/4] probing Open-Meteo response shapes (air quality, ERA5, hist forecast) ...")
+    report["open_meteo_schemas"] = probe_open_meteo_schemas(cities[0])
 
     token = os.environ.get("AQICN_TOKEN", "").strip()
     if token:
-        print("[3/3] probing AQICN feed schema ...")
+        print("[4/4] probing AQICN feed schema ...")
         try:
             aqicn = probe_aqicn_schema(cities, token)
             report["aqicn"] = aqicn
@@ -172,7 +213,7 @@ def main() -> int:
         except Exception as exc:
             report["aqicn"] = {"error": str(exc)}
     else:
-        print("[3/3] skipped — AQICN_TOKEN not set")
+        print("[4/4] skipped — AQICN_TOKEN not set")
         report["aqicn"] = {"skipped": "AQICN_TOKEN not set"}
 
     (SCHEMAS / "probe_report.json").write_text(

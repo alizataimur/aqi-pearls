@@ -87,7 +87,9 @@ def fetch_feed(
                 url, headers={"User-Agent": "pearls-aqi-predictor/0.1"}
             )
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                payload = json.loads(response.read().decode("utf-8"))
+                # json.loads is typed Any; the annotation is what lets this
+                # function honestly claim a dict return under mypy --strict.
+                payload: dict[str, Any] = json.loads(response.read().decode("utf-8"))
 
             status = payload.get("status")
             if status != "ok":

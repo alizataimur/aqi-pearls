@@ -3,12 +3,12 @@
   "grid_cells": {
     "islamabad": {
       "requested": [
-        33.6844,
-        73.0479
+        33.7235,
+        73.11822
       ],
       "served_grid": [
         33.700005,
-        73.0
+        73.100006
       ]
     },
     "rawalpindi": {
@@ -23,11 +23,11 @@
     },
     "lahore": {
       "requested": [
-        31.5497,
-        74.3436
+        31.560078,
+        74.33589
       ],
       "served_grid": [
-        31.5,
+        31.599998,
         74.3
       ]
     },
@@ -39,102 +39,196 @@
     "probes_used": 11,
     "note": "set sources.backfill_start in conf/config.yaml from this"
   },
-  "aqicn": {
-    "probed_city": "islamabad",
-    "has_forecast_block": true,
-    "forecast_pollutants": [
-      "pm10",
-      "pm25",
-      "uvi"
-    ],
-    "schema": {
-      "data": {
-        "aqi": "int",
-        "attributions": [
-          {
-            "logo": "str",
-            "name": "str",
-            "url": "str"
-          }
+  "open_meteo_schemas": {
+    "air_quality": {
+      "elevation": "float",
+      "generationtime_ms": "float",
+      "hourly": {
+        "aerosol_optical_depth": [
+          "float"
         ],
-        "city": {
-          "geo": [
-            "float"
-          ],
-          "location": "str",
-          "name": "str",
-          "url": "str"
-        },
-        "debug": {
-          "sync": "str"
-        },
-        "dominentpol": "str",
-        "forecast": {
-          "daily": {
-            "pm10": [
-              "..."
-            ],
-            "pm25": [
-              "..."
-            ],
-            "uvi": [
-              "..."
-            ]
-          }
-        },
-        "iaqi": {
-          "co": {
-            "v": "float"
-          },
-          "dew": {
-            "v": "float"
-          },
-          "h": {
-            "v": "int"
-          },
-          "no2": {
-            "v": "float"
-          },
-          "o3": {
-            "v": "float"
-          },
-          "p": {
-            "v": "float"
-          },
-          "pm10": {
-            "v": "int"
-          },
-          "pm25": {
-            "v": "int"
-          },
-          "r": {
-            "v": "float"
-          },
-          "so2": {
-            "v": "float"
-          },
-          "t": {
-            "v": "float"
-          },
-          "w": {
-            "v": "float"
-          },
-          "wd": {
-            "v": "float"
-          },
-          "wg": {
-            "v": "float"
-          }
-        },
-        "idx": "int",
-        "time": {
-          "iso": "str",
-          "s": "str",
-          "tz": "str",
-          "v": "int"
-        }
+        "carbon_monoxide": [
+          "float"
+        ],
+        "dust": [
+          "float"
+        ],
+        "nitrogen_dioxide": [
+          "float"
+        ],
+        "ozone": [
+          "float"
+        ],
+        "pm10": [
+          "float"
+        ],
+        "pm2_5": [
+          "float"
+        ],
+        "sulphur_dioxide": [
+          "float"
+        ],
+        "time": [
+          "str"
+        ],
+        "us_aqi": [
+          "int"
+        ],
+        "us_aqi_pm2_5": [
+          "int"
+        ]
       },
-      "status": "str"
+      "hourly_units": {
+        "aerosol_optical_depth": "str",
+        "carbon_monoxide": "str",
+        "dust": "str",
+        "nitrogen_dioxide": "str",
+        "ozone": "str",
+        "pm10": "str",
+        "pm2_5": "str",
+        "sulphur_dioxide": "str",
+        "time": "str",
+        "us_aqi": "str",
+        "us_aqi_pm2_5": "str"
+      },
+      "latitude": "float",
+      "longitude": "float",
+      "timezone": "str",
+      "timezone_abbreviation": "str",
+      "utc_offset_seconds": "int"
+    },
+    "weather_archive": {
+      "elevation": "float",
+      "generationtime_ms": "float",
+      "hourly": {
+        "boundary_layer_height": [
+          "float"
+        ],
+        "cloud_cover": [
+          "int"
+        ],
+        "dew_point_2m": [
+          "float"
+        ],
+        "precipitation": [
+          "float"
+        ],
+        "relative_humidity_2m": [
+          "int"
+        ],
+        "shortwave_radiation": [
+          "float"
+        ],
+        "surface_pressure": [
+          "float"
+        ],
+        "temperature_2m": [
+          "float"
+        ],
+        "temperature_850hPa": [
+          "NoneType"
+        ],
+        "time": [
+          "str"
+        ],
+        "wind_direction_10m": [
+          "int"
+        ],
+        "wind_gusts_10m": [
+          "float"
+        ],
+        "wind_speed_10m": [
+          "float"
+        ]
+      },
+      "hourly_units": {
+        "boundary_layer_height": "str",
+        "cloud_cover": "str",
+        "dew_point_2m": "str",
+        "precipitation": "str",
+        "relative_humidity_2m": "str",
+        "shortwave_radiation": "str",
+        "surface_pressure": "str",
+        "temperature_2m": "str",
+        "temperature_850hPa": "str",
+        "time": "str",
+        "wind_direction_10m": "str",
+        "wind_gusts_10m": "str",
+        "wind_speed_10m": "str"
+      },
+      "latitude": "float",
+      "longitude": "float",
+      "timezone": "str",
+      "timezone_abbreviation": "str",
+      "utc_offset_seconds": "int"
+    },
+    "historical_forecast": {
+      "elevation": "float",
+      "generationtime_ms": "float",
+      "hourly": {
+        "boundary_layer_height": [
+          "float"
+        ],
+        "cloud_cover": [
+          "int"
+        ],
+        "dew_point_2m": [
+          "float"
+        ],
+        "precipitation": [
+          "float"
+        ],
+        "relative_humidity_2m": [
+          "int"
+        ],
+        "shortwave_radiation": [
+          "float"
+        ],
+        "surface_pressure": [
+          "float"
+        ],
+        "temperature_2m": [
+          "float"
+        ],
+        "temperature_850hPa": [
+          "float"
+        ],
+        "time": [
+          "str"
+        ],
+        "wind_direction_10m": [
+          "int"
+        ],
+        "wind_gusts_10m": [
+          "float"
+        ],
+        "wind_speed_10m": [
+          "float"
+        ]
+      },
+      "hourly_units": {
+        "boundary_layer_height": "str",
+        "cloud_cover": "str",
+        "dew_point_2m": "str",
+        "precipitation": "str",
+        "relative_humidity_2m": "str",
+        "shortwave_radiation": "str",
+        "surface_pressure": "str",
+        "temperature_2m": "str",
+        "temperature_850hPa": "str",
+        "time": "str",
+        "wind_direction_10m": "str",
+        "wind_gusts_10m": "str",
+        "wind_speed_10m": "str"
+      },
+      "latitude": "float",
+      "longitude": "float",
+      "timezone": "str",
+      "timezone_abbreviation": "str",
+      "utc_offset_seconds": "int"
     }
+  },
+  "aqicn": {
+    "error": "fetch_feed() takes 2 positional arguments but 3 were given"
   }
 }

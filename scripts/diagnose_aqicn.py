@@ -1,6 +1,11 @@
-import json, os, sys, urllib.request as u
+import json
+import os
+import sys
+import urllib.request as u
+
 sys.path.insert(0, "scripts")
 from clock_starter import load_dotenv
+
 load_dotenv()
 token = os.environ["AQICN_TOKEN"]
 
@@ -22,6 +27,7 @@ for p in paths:
     if isinstance(data, dict):
         city = (data.get("city") or {}).get("name")
         geo = (data.get("city") or {}).get("geo")
-        print(f"{p:28} {d.get('status'):6} aqi={data.get('aqi')} idx={data.get('idx')} {city} {geo}")
+        aqi, idx = data.get("aqi"), data.get("idx")
+        print(f"{p:28} {d.get('status'):6} aqi={aqi} idx={idx} {city} {geo}")
     else:
         print(f"{p:28} {d.get('status'):6} {data}")
