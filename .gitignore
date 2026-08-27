@@ -1,0 +1,42 @@
+# Secrets — I9
+.env
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Notebook outputs are never committed (CLAUDE.md §16)
+.ipynb_checkpoints/
+
+# Local working data. NOTE the exceptions: the ledger IS committed — it is the
+# honesty infrastructure (I3) and losing it is unrecoverable.
+data/*
+!data/ledger/
+!data/ledger/**
+
+# Raw payloads split by whether they can be fetched again (ADR-006).
+# AQICN raw is irreplaceable — there is no history endpoint, and each CI run is
+# a fresh container, so anything not committed is gone. Commit it.
+!data/raw/
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/aqicn/
+!data/raw/aqicn/**
+
+# Open-Meteo raw is a re-fetchable convenience cache. Keep it local.
+data/raw/open_meteo/
+
+# Generated artifacts are committed (I5: report numbers come from these),
+# but local scratch is not.
+reports/**/*.tmp

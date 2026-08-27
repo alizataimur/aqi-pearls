@@ -1,0 +1,48 @@
+{
+  "$comment": [
+    "Pre-approvals so an unattended session does not halt on the fourth pytest.",
+    "Verify the pattern syntax against `claude --help` / `/help` before relying on it —",
+    "the CLI moves faster than this file. If prompts still interrupt, start the session",
+    "with: claude --permission-mode acceptEdits",
+    "Deny rules win over allow rules. Keep it that way."
+  ],
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
+      "Bash(pytest:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(ruff:*)",
+      "Bash(mypy:*)",
+      "Bash(make:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pip install:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh workflow:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard:*)",
+      "Write(.env)",
+      "Edit(.env)",
+      "Read(.env)",
+      "Bash(rm data/ledger:*)",
+      "Edit(data/ledger/**)"
+    ]
+  }
+}

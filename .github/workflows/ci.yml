@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "data/ledger/**"      # the hourly capture must not re-trigger CI
+      - "data/raw/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check . && ruff format --check .
+
+      - name: Types
+        run: mypy src/
+
+      - name: Tests
+        run: pytest -q
+
+      # STAGE 2 — add tests/test_no_leakage.py and give it its own step here.
+      # I1 is the invariant that silently invalidates every downstream number,
+      # so a green "tests passed" line must never be able to hide a skipped
+      # leakage test. Not wired yet because there are no features to leak;
+      # tracked as a Stage 2 gate item in docs/STATE.md.

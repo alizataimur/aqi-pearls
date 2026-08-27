@@ -1,0 +1,54 @@
+# Single source of configuration truth. No magic numbers in code (CLAUDE.md §16).
+
+project:
+  name: pearls-aqi-predictor
+  display_timezone: Asia/Karachi   # I7: compute in UTC, display local
+  storage_timezone: UTC
+
+targets:
+  # Daily is primary; hourly is a display detail (CLAUDE.md §9.1).
+  daily_horizons_days: [1, 2, 3]
+  hourly_horizons_hours: [6, 12, 24, 48, 72]   # champion model only
+  hazard_threshold: 200          # AQI above which a day counts as an episode
+  secondary_threshold: 150
+
+evaluation:
+  purge_gap_hours: 72            # I2: >= max horizon
+  n_splits: 5
+  # I2: the test window must contain a full smog season.
+  test_window_must_include_months: [10, 11, 12, 1, 2]
+  primary_metric: median_lead_time_hours   # CLAUDE.md §12.3
+  guardrails:
+    min_recall_vs: persistence
+    max_false_alarm_ratio: 0.5
+
+conformal:
+  confidence_levels: [0.5, 0.9]
+  # Mondrian groups — marginal coverage alone hides episode under-coverage.
+  groups: [season, aqi_band]
+
+alerts:
+  trigger_probability: 0.6       # P(AQI>200), not a point forecast crossing 200
+  dedupe_window_hours: 24
+
+sources:
+  open_meteo:
+    air_quality: https://air-quality-api.open-meteo.com/v1/air-quality
+    weather_archive: https://archive-api.open-meteo.com/v1/archive
+    historical_forecast: https://historical-forecast-api.open-meteo.com/v1/forecast
+    live_forecast: https://api.open-meteo.com/v1/forecast
+    domain: cams_global          # pinned explicitly, never 'auto' (CLAUDE.md §8.2)
+  aqicn:
+    feed: https://api.waqi.info/feed
+  # Set from the probe, not invented. CAMS global history starts ~2022-08.
+  backfill_start: null
+
+store:
+  backend: parquet               # parquet | hopsworks
+  feature_group: aqi_features
+  version: 1
+
+retry:
+  attempts: 4
+  base_delay_seconds: 1.5
+  max_delay_seconds: 30

@@ -1,0 +1,41 @@
+# Forecast zones. Multi-city is a config change, never a code change (CLAUDE.md §16).
+#
+# cams_grid is deliberately null until `make probe` fills it in. CLAUDE.md §8.2
+# flags that Islamabad and Rawalpindi very likely land in the SAME ~0.4 degree
+# CAMS cell — if they do, they are one forecast zone with two labels, and the
+# report must say so rather than presenting them as independently modelled.
+# Do not guess these values; run the probe.
+
+cities:
+  - id: islamabad
+    name_en: Islamabad
+    name_ur: اسلام آباد
+    lat: 33.6844
+    lon: 73.0479
+    timezone: Asia/Karachi
+    aqicn_station: null      # filled by probe; geo: lookup used until then
+    cams_grid: null          # [lat, lon] returned by Open-Meteo — filled by probe
+    zone: capital            # zone, not city, is the modelling unit
+
+  - id: rawalpindi
+    name_en: Rawalpindi
+    name_ur: راولپنڈی
+    lat: 33.5651
+    lon: 73.0169
+    timezone: Asia/Karachi
+    aqicn_station: null
+    cams_grid: null
+    zone: capital            # provisionally the same zone as Islamabad
+
+  # Second zone: far enough away to be a genuinely distinct CAMS cell, and the
+  # most severe smog in the country. Two real zones is the honest maximum
+  # (CLAUDE.md §4) — resist adding Karachi and Peshawar for the row count.
+  - id: lahore
+    name_en: Lahore
+    name_ur: لاہور
+    lat: 31.5497
+    lon: 74.3436
+    timezone: Asia/Karachi
+    aqicn_station: null
+    cams_grid: null
+    zone: lahore

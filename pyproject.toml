@@ -1,0 +1,83 @@
+[project]
+name = "pearls-aqi-predictor"
+version = "0.1.0"
+description = "Honest, uncertainty-aware 3-day AQI forecasting for Pakistani cities"
+requires-python = ">=3.11"
+
+# Stage 0 runs on the standard library alone — the clock starter must never be
+# blocked by a dependency resolution problem (CLAUDE.md §6). Everything below
+# is for later stages and is pinned, per §16.
+dependencies = [
+  "pandas==2.2.3",
+  "numpy==2.1.3",
+  "pyyaml==6.0.2",
+  "pydantic==2.10.4",
+  "pydantic-settings==2.7.0",
+  "requests==2.32.3",
+  "structlog==24.4.0",
+]
+
+[project.optional-dependencies]
+# Stage 2 — data + store
+data = [
+  "pyarrow==18.1.0",
+  "pandera==0.22.1",
+  "duckdb==1.1.3",
+]
+# Stage 3 — models and evaluation
+models = [
+  "scikit-learn==1.6.0",
+  "lightgbm==4.5.0",
+  "statsmodels==0.14.4",
+  "torch==2.5.1",
+  "shap==0.46.0",
+  # I0 version trap (CLAUDE.md §12.5): the time-series class was
+  # MapieTimeSeriesRegressor in 0.x and is mapie.regression.TimeSeriesRegressor
+  # in 1.x. This pin selects the 1.x import. Do not copy a 0.x tutorial.
+  "mapie==1.0.1",
+]
+# Stage 4 — serving
+serve = [
+  "fastapi==0.115.6",
+  "uvicorn==0.34.0",
+  "streamlit==1.41.1",
+  "plotly==5.24.1",
+]
+dev = [
+  "pytest==8.3.4",
+  "pytest-cov==6.0.0",
+  "ruff==0.8.4",
+  "mypy==1.14.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 90
+target-version = "py311"
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+mypy_path = "src"
+# Notebooks import from src, never the reverse (CLAUDE.md §16).
+exclude = ["notebooks/", "^build/"]
+
+[[tool.mypy.overrides]]
+module = ["yaml.*", "shap.*", "mapie.*", "lightgbm.*", "statsmodels.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
