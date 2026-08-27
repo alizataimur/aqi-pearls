@@ -174,7 +174,7 @@ def extract_observation(payload: dict[str, Any]) -> dict[str, Any]:
         entry = iaqi.get(key)
         if isinstance(entry, dict):
             v = entry.get("v")
-            return float(v) if isinstance(v, (int, float)) else None
+            return float(v) if isinstance(v, int | float) else None
         return None
 
     time_block = data.get("time", {}) or {}
