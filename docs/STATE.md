@@ -23,11 +23,10 @@
 | `make probe` findings recorded | done | `docs/schemas/probe_report.json`; ADR-007, ADR-008 |
 | Rubric confirmed with instructor | **still open — needs Aliza** | decides how much of §3 survives; send the email |
 
-**ci.yml is currently red** (`conclusion: failure` on the two most recent runs, both
-before this session's fixes). Not yet re-verified against a push — see "single
-next action" below. A red `ci` workflow does not carry I3's urgency the way a
-red `clock-starter` would, but CLAUDE.md §19 still ranks fixing it above new
-scope.
+**ci.yml is green.** It was red on the two runs before this session (lint
+failures on the pre-existing `diagnose_aqicn.py` import style and the pandas
+source modules' line length) — fixed and confirmed via a real push: run
+33075546091 on commit `1728978` completed `success`.
 
 ---
 
@@ -67,17 +66,15 @@ re-probing; it's confirmed, not a fluke.
 
 ## The single next action
 
-1. Push this session's commit, then check whether `ci.yml` goes green — it
-   was red on the last two runs (both pre-date this session's mypy/ruff
-   fixes, which were applied and verified green locally with the exact pinned
-   tool versions). If it's still red after push, that is session 2's first
-   task, ahead of any new feature work.
-2. Session 2: feature + target builder, `conf/features.yaml` with `min_lag`,
-   and `tests/test_no_leakage.py` — and resolve the ADR-009 gap before
-   `inversion_proxy` is implemented, not after.
-3. Still needs Aliza: the rubric-confirmation email (CLAUDE.md §2 day-one
-   action) has not been sent as far as this repo's history shows. It still
-   decides how much of §3 survives and should not keep sliding.
+Session 2: feature + target builder, `conf/features.yaml` with `min_lag`,
+and `tests/test_no_leakage.py` — build `pipelines/feature_pipeline.py` around
+it and give it its own hourly workflow (ADR-010 deferred both here). Resolve
+the ADR-009 gap (`temperature_850hPa` missing from the ERA5 archive endpoint)
+before `inversion_proxy` is implemented, not after.
+
+Still needs Aliza: the rubric-confirmation email (CLAUDE.md §2 day-one
+action) has not been sent as far as this repo's history shows. It decides how
+much of §3 survives and should not keep sliding.
 
 ---
 
