@@ -1,0 +1,39 @@
+# Festival calendar for the backfill range and a few years past submission.
+#
+# Islamic dates (Eid al-Fitr, Eid al-Adha) shift ~11 days a year and are
+# moon-sighting dependent — the dates below are the commonly published
+# Gregorian-calendar approximations (+/- 1 day is normal, and Pakistan's
+# sighting sometimes lags Saudi Arabia's by a day). Good enough for a
+# firecracker/traffic-spike flag; verify against Pakistan's official Ruet-e-
+# Hilal Committee announcements before the final report if the day-level
+# precision starts mattering to a specific finding.
+#
+# Diwali is Hindu-lunisolar, not Islamic — included per CLAUDE.md §10 for
+# regional firecracker-driven spikes. New Year is fixed and could be computed,
+# but is listed for uniformity so every festival_flag source is one lookup.
+
+festivals:
+  - {date: "2022-05-02", name: "Eid al-Fitr"}
+  - {date: "2022-07-09", name: "Eid al-Adha"}
+  - {date: "2022-10-24", name: "Diwali"}
+  - {date: "2022-01-01", name: "New Year"}
+  - {date: "2023-04-21", name: "Eid al-Fitr"}
+  - {date: "2023-06-28", name: "Eid al-Adha"}
+  - {date: "2023-11-12", name: "Diwali"}
+  - {date: "2023-01-01", name: "New Year"}
+  - {date: "2024-04-10", name: "Eid al-Fitr"}
+  - {date: "2024-06-17", name: "Eid al-Adha"}
+  - {date: "2024-11-01", name: "Diwali"}
+  - {date: "2024-01-01", name: "New Year"}
+  - {date: "2025-03-31", name: "Eid al-Fitr"}
+  - {date: "2025-06-07", name: "Eid al-Adha"}
+  - {date: "2025-10-20", name: "Diwali"}
+  - {date: "2025-01-01", name: "New Year"}
+  - {date: "2026-03-20", name: "Eid al-Fitr"}
+  - {date: "2026-05-27", name: "Eid al-Adha"}
+  - {date: "2026-11-08", name: "Diwali"}
+  - {date: "2026-01-01", name: "New Year"}
+  - {date: "2027-03-09", name: "Eid al-Fitr"}
+  - {date: "2027-05-16", name: "Eid al-Adha"}
+  - {date: "2027-10-29", name: "Diwali"}
+  - {date: "2027-01-01", name: "New Year"}

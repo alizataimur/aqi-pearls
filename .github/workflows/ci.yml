@@ -37,8 +37,9 @@ jobs:
       - name: Tests
         run: pytest -q
 
-      # STAGE 2 — add tests/test_no_leakage.py and give it its own step here.
       # I1 is the invariant that silently invalidates every downstream number,
-      # so a green "tests passed" line must never be able to hide a skipped
-      # leakage test. Not wired yet because there are no features to leak;
-      # tracked as a Stage 2 gate item in docs/STATE.md.
+      # so it gets its own named CI step — a green "Tests" line above can
+      # never quietly stand in for it, and this step fails loudly on its own
+      # if the leakage test is ever skipped or weakened (CLAUDE.md I1).
+      - name: Leakage test (I1)
+        run: pytest tests/test_no_leakage.py -v

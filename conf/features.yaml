@@ -1,0 +1,114 @@
+# Feature specification (CLAUDE.md §10, D2). Loaded and expanded by
+# src/aqi/features/spec.py into one FeatureSpec per actual output column;
+# tests/test_features.py asserts the expansion matches builder.py's real
+# output columns exactly, so this file cannot silently drift from the code.
+#
+# min_lag_hours — see docs/DECISIONS.md ADR-011 for the full reasoning.
+# Short version: it means "hours of forecast lead time baked into this
+# feature," not "data age."
+#   - null (or 0): built only from data timestamped <= issue time T. Always
+#     safe, admitted at every horizon.
+#   - an integer h: a future-dated covariate describing conditions AT T+h,
+#     sourced from the historical-forecast archive. Admitted ONLY when the
+#     target horizon equals h exactly.
+# The builder asserts this mechanically (I1) in addition to the empirical
+# sentinel-corruption test in tests/test_no_leakage.py.
+
+pollutants:
+  # name -> the column in open_meteo_air.parse_air_quality's output.
+  - {name: pm2_5, source_column: pm2_5}
+  - {name: pm10, source_column: pm10}
+  - {name: o3, source_column: ozone}
+  - {name: no2, source_column: nitrogen_dioxide}
+  - {name: so2, source_column: sulphur_dioxide}
+  - {name: co, source_column: carbon_monoxide}
+  - {name: dust, source_column: dust}
+  - {name: aerosol_optical_depth, source_column: aerosol_optical_depth}
+
+weather:
+  # Raw scalars, straight from open_meteo_weather.parse_weather_hourly.
+  # temperature_850hPa is sourced from historical_forecast even for the past
+  # window — ERA5 archive does not serve it at all (ADR-009, resolved).
+  - {name: temperature_2m, source_column: temperature_2m}
+  - {name: relative_humidity_2m, source_column: relative_humidity_2m}
+  - {name: dew_point_2m, source_column: dew_point_2m}
+  - {name: wind_gusts_10m, source_column: wind_gusts_10m}
+  - {name: surface_pressure, source_column: surface_pressure}
+  - {name: precipitation, source_column: precipitation}
+  - {name: cloud_cover, source_column: cloud_cover}
+  - {name: boundary_layer_height, source_column: boundary_layer_height}
+  - {name: shortwave_radiation, source_column: shortwave_radiation}
+  - {name: temperature_850hPa, source_column: temperature_850hPa}
+  - {name: wind_speed_10m, source_column: wind_speed_10m}
+  # wind_direction_10m is never used raw (circular) — sin/cos plus u/v:
+  - {name: wind_direction_10m_sin, derived_from: wind_direction_10m}
+  - {name: wind_direction_10m_cos, derived_from: wind_direction_10m}
+  - {name: wind_u_10m, derived_from: [wind_speed_10m, wind_direction_10m]}
+  - {name: wind_v_10m, derived_from: [wind_speed_10m, wind_direction_10m]}
+
+time:
+  # Cyclical only — never a raw integer (CLAUDE.md §10).
+  - hour_sin
+  - hour_cos
+  - dow_sin
+  - dow_cos
+  - doy_sin
+  - doy_cos
+  - month_sin
+  - month_cos
+  - is_weekend
+
+lags:
+  base_features: [pm2_5, pm10, o3, no2, so2, co, temperature_2m,
+                   relative_humidity_2m, wind_speed_10m, boundary_layer_height]
+  lag_hours: [1, 3, 6, 12, 24, 48, 168]
+  # generated name: "{base}_lag_{h}h"
+
+rolling:
+  base_features: [pm2_5, pm10, o3, temperature_2m, wind_speed_10m,
+                   boundary_layer_height, relative_humidity_2m]
+  windows_hours: [6, 24, 72]
+  stats: [mean, max, min, std]
+  # generated name: "{base}_roll_{stat}_{window}h"
+
+derived:
+  # D2 explicitly requires AQI change rate. hourly_aqi_nowcast is the base
+  # series (CLAUDE.md §9.2 aqi_nowcast, trailing 12h) the rates are diffed on.
+  - hourly_aqi_nowcast
+  - aqi_change_rate_1h
+  - aqi_change_rate_3h
+  - aqi_change_rate_24h
+  - pm25_pm10_ratio_roll_24h   # combustion (low) vs dust (high) signature
+
+physics:
+  # CLAUDE.md §10 physics table. Each earns its place via correlation with
+  # PM2.5 spikes in notebooks/03_physics_features.ipynb (session 4).
+  - inversion_proxy
+  - stagnation_index
+  - ventilation_index
+  - crop_burning_season
+  - crop_burning_day_count
+  - festival_flag
+  - heating_season
+  - wind_from_sector_N
+  - wind_from_sector_E
+  - wind_from_sector_S
+  - wind_from_sector_W
+
+future_covariates:
+  # historical_forecast-sourced, one column per (variable, horizon) pair.
+  # min_lag_hours == the horizon in the generated FeatureSpec (ADR-011).
+  variables: [temperature_2m, relative_humidity_2m, dew_point_2m,
+              wind_speed_10m, wind_gusts_10m, surface_pressure,
+              precipitation, cloud_cover, boundary_layer_height,
+              shortwave_radiation, temperature_850hPa]
+  horizons_hours: [24, 48, 72]
+  # generated name: "fc_{variable}_h{horizon}"
+
+targets:
+  # CLAUDE.md §9.1 daily_episode family. aqi_from_24h_mean's own docstring
+  # ("the definition behind the daily_episode target family") fixes this —
+  # not re-decided here. overall_aqi = max across pollutant sub-indices for
+  # that calendar day (CLAUDE.md §9.2), not a max across hours.
+  horizons_hours: [24, 48, 72]
+  # generated names: "target_daily_aqi_h{h}", "target_exceeds_200_h{h}"

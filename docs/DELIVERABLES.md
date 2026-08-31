@@ -39,7 +39,7 @@ archive** — the source that makes leakage-safe future covariates possible at a
 Station identifiers are pinned and every capture is distance-verified after the nearest-station
 lookup silently returned a Delhi station for three Pakistani cities (ADR-007).
 
-### D2 — Compute features and targets, including time-based and derived ⬜
+### D2 — Compute features and targets, including time-based and derived ✅
 
 **Brief:** *"Computes features from this raw data (aka model inputs), and targets (aka model
 outputs). Include time-based features (hour, day, month) and derived features like AQI change
@@ -48,13 +48,17 @@ rate."*
 | | |
 |---|---|
 | Lives in | `src/aqi/features/`, `conf/features.yaml` |
-| Evidence | `pytest tests/test_features.py tests/test_no_leakage.py` · `docs/feature_spec.md` |
+| Evidence | `pytest tests/test_features.py tests/test_no_leakage.py` · `docs/feature_spec.md` · dedicated `Leakage test (I1)` CI step |
 
 **Done distinctively:** region-specific Punjab smog physics — inversion proxy, stagnation index,
-ventilation index, crop-burning window, festival calendar — each validated against PM2.5 spikes in
-`notebooks/03_physics_features.ipynb`, with the ones that show nothing reported as tried-and-rejected.
-Every feature declares a `min_lag` and the builder asserts it mechanically, so I1 is enforced by
-code rather than by care.
+ventilation index, crop-burning window, festival calendar — built and unit-tested now; correlation
+against PM2.5 spikes is `notebooks/03_physics_features.ipynb` (session 4), and features that show
+nothing will be reported as tried-and-rejected rather than silently dropped. Every feature declares
+a `min_lag_hours` (ADR-011) and the builder asserts it mechanically — and I1 is additionally proven
+**empirically**: `tests/test_no_leakage.py` builds a real feature vector, corrupts every actual
+reading after the issue time with a sentinel, rebuilds, and asserts nothing moved, with a positive
+control proving the test isn't vacuous. All 235 declared features round-trip against the builder's
+real output columns via a schema test — `conf/features.yaml` cannot silently drift from the code.
 
 ### D3 — Store features in a Feature Store ⬜
 
