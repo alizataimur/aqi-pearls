@@ -9,6 +9,48 @@
 
 ---
 
+## 🔴 clock-starter has been red for 4 days — top priority, read this first
+
+**16 consecutive scheduled failures**, every hour since 2026-08-27T20:59:23Z.
+The only success ever was the first manual `workflow_dispatch` run
+(2026-08-27T10:45:43Z). Per CLAUDE.md's own anti-pattern list and
+`docs/RUNBOOK.md` §6: *"The clock-starter workflow has been red for three
+days. Stop everything else."* Every one of those ~90 hours is a permanent,
+unrecoverable gap in the benchmark (I3) — AQICN has no history endpoint.
+
+**What's confirmed:** the script succeeds locally, right now, against the
+live AQICN API, using the token in this machine's `.env`. So it is not a
+code bug that reproduces outside CI. Something is different about the
+GitHub Actions environment specifically (most likely candidates: the
+`AQICN_TOKEN` repo secret is empty, stale, or was rotated after the one
+successful manual run; less likely, AQICN rate-limits or blocks GitHub's
+runner IP ranges differently than a residential IP).
+
+**What I could not do:** read the actual failure log. The Actions log
+download API returned `403 Must have admin rights to Repository` to this
+session's unauthenticated calls — there is no `gh` CLI or token available
+here to see the real exception text, only the run's pass/fail conclusion.
+
+**What I did:** commit `b8e0a21` makes `scripts/clock_starter.py` write a
+markdown summary (per-city error text, plus the `AQICN_TOKEN` length —
+never the value) to `$GITHUB_STEP_SUMMARY` on total failure. That summary
+*is* readable through the public Checks API without admin rights
+(`GET /repos/alizataimur/aqi-pearls/commits/{sha}/check-runs`, then
+`output.summary` on the `capture` check run), which is what let this
+session queue a background check of the next scheduled run. If that surfaces
+a fixable bug, it'll be fixed and pushed automatically; if it points at the
+secret, **only Aliza can fix that** — Settings → Secrets and variables →
+Actions → `AQICN_TOKEN`, re-paste a fresh token from
+https://aqicn.org/data-platform/token/.
+
+**If you're reading this before the background check reports back:** open
+the Actions tab yourself, click the newest failed `clock-starter` run, and
+read the `Capture AQICN observation...` step's log directly — that's the
+fastest path to ground truth and doesn't depend on this session's queued
+check landing first.
+
+---
+
 ## Stage 0 gate — CLOSED (see session 1 log for detail)
 
 ## Session 1 — Open-Meteo sources — CLOSED
