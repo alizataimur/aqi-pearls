@@ -20,13 +20,23 @@ now asserting the two parsers agree on the whole structure, not just `lat`.
 **Confirmed live**, via the public Checks/Actions API (no admin rights needed):
 run #18, `workflow_dispatch`, triggered by the fix commit `fda36a5`, **succeeded**
 at 2026-08-31T14:44:11Z — the first green run since #1. Runs #2–#17 (2026-08-27
-20:59 → 2026-08-31 13:35, all on the stale `aa315de` tree) are the permanent,
-unrecoverable ~90-hour ledger gap this ADR describes; nothing after the fix has
-failed. No scheduled run has landed since the fix yet, but a scheduled run
-executes the identical workflow file as the manual dispatch that just succeeded,
-so this is being treated as resolved rather than reopened as this session's
-blocker. Worth a glance at the Actions tab next session to confirm the first
-post-fix scheduled run also went green.
+20:59 → 2026-08-31 13:35, all on stale pre-fix trees — most on `aa315de`, the
+last, #17, on `5d50928`) are the permanent, unrecoverable ~90-hour ledger gap
+this ADR describes; nothing after the fix has failed. Commit `b8e0a21`
+("surface failure diagnostics via GITHUB_STEP_SUMMARY") **never actually got a
+scheduled run** — checked `commits/b8e0a21/check-runs` directly: only the
+unrelated `ci` workflow ran on that SHA. It was superseded by the real fix
+(`fda36a5`) before its first hourly tick landed, so its diagnostic step was
+never exercised by a live failure — the root cause was instead found by
+reading the code (the quote-stripping bug), not by waiting on that summary.
+
+**Re-checked at 2026-08-31T15:51Z** (mid-session-3, in response to a direct
+ask to verify this): still only 18 runs total, nothing scheduled since #17
+(13:35Z). The next hourly tick (~15:07Z) hadn't appeared in the Actions API by
+15:51Z — 44 minutes past due, longer than the "10–30 min is normal" queuing
+CLAUDE.md §13 describes. Not treated as a new failure (no failed run exists to
+diagnose), but worth confirming next session whether that tick eventually
+landed green, or never fired at all.
 
 Per CLAUDE.md's anti-pattern list, this was checked *before* any session-3 code
 was written, not skipped past.
