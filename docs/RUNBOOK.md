@@ -143,6 +143,59 @@ Every row is one session. Start each with `/clear`, then `/session <N>`. Walk aw
 Session 2's leakage test before session 5 (otherwise you may spend a day on numbers that are
 fiction). Session 8 as early as you can bear (uptime is wall-clock). Everything else can slide.
 
+### 2.1 What each session must actually produce
+
+`/session <N>` looks this up. The point of writing it down is that a session which only knows its
+title builds the generic version of the thing.
+
+**2 — Features and the leakage test.** `conf/features.yaml` with a `min_lag` on every feature; the
+builder in `src/aqi/features/` including the §10 physics features; `tests/test_no_leakage.py`.
+That test must catch leakage *empirically*, not check paperwork: build the feature vector for
+`(T, h)`, overwrite every value after `T` with a sentinel, rebuild, and assert the vectors are
+identical — any column that moved read the future. Plus: no feature with `min_lag < h` admitted at
+horizon `h`; the splitter leaves ≥ 72h purge; scalers fit on train only. Wire the dedicated CI step.
+ADR-009 is already decided in `STATE.md` — implement, don't reopen.
+
+**3 — Store and backfill.** Both store backends behind one `Protocol`, passing an identical suite.
+Resumable chunked backfill to 2022-08-04 with a manifest. `pipelines/feature_pipeline.py` and the
+hourly workflow land here too — they close D1, which session 1 deliberately left partial.
+
+**4 — EDA and divergence.** `01_eda.ipynb` reading as a narrative, not a cell dump.
+`02_divergence.ipynb` quantifying CAMS-vs-station disagreement — that is D11's distinctive answer
+and it is genuinely novel for these coordinates. `03_physics_features.ipynb` validating each physics
+feature against PM2.5 spikes; the ones that show nothing are a *finding*, recorded as such.
+
+**5 — Baselines then the ladder.** All four baselines first, on the real split, published before
+anything else runs. Then rungs 1–5, each evaluated on the identical window before the next starts.
+Per-horizon RMSE/MAE/R² and MASE to `reports/metrics/ladder.json`. If persistence wins somewhere,
+that is the result.
+
+**6 — Episodes and uncertainty.** Precision/recall/F1/CSI/FAR and **lead time** at AQI > 150 and
+> 200. Brier score and skill score with a reliability diagram. Conformal intervals calibrated
+per horizon and Mondrian-grouped by season and AQI band, with coverage reported *per group* — a
+single interval width across horizons means the layer is decorative.
+
+**7 — Training pipeline and registry.** Feature store → train → evaluate → register, with the gated
+promotion from §11.2. Offline gate on the held-out window; ledger-based gating only once the ledger
+holds ≥ 30 days.
+
+**8 — Automation.** The remaining workflows live, failure notification on every one, concurrency
+groups. This is where D8's seven-green-days clock starts, so earlier is strictly better.
+
+**9 — Explanations.** SHAP panel, then the briefing layer: SHAP → driver dict → strict template →
+LLM rephrases prose only. Deterministic fallback with no key. Urdu written natively from the same
+dict, never translated from the English.
+
+**10 — Serving.** FastAPI with the §14 endpoints, Streamlit with five pages, both deployed, the UI
+falling back to the store when the API is down, and `--static` mode working. Record the demo video
+this session, not in session 12.
+
+**11 — Alerts.** Telegram on `P(AQI>200) > 0.6`, deduplicated within an episode, with an all-clear.
+
+**12 — Report and audit.** `reports/final_report.md` to the §18 structure, every number read from
+`reports/metrics/`. Then the audit sweep with the `auditor` agent — twice: once against every row of
+§2, once attacking I1. Do not skip the second.
+
 ---
 
 ## 3. How to launch a session
