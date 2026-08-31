@@ -77,6 +77,16 @@ def fetch_feed(
             f"geo: lookups are forbidden (ADR-007), got {station!r}. "
             "Pin a station id such as '@11739' in conf/cities.yaml."
         )
+    # A malformed identifier produces a nonsense URL and a confusing 404 rather
+    # than a clear failure. This turned 16 consecutive red runs into a token
+    # hunt when the real cause was a config parser leaving quote characters on
+    # the value (ADR-012).
+    if any(ch in station for ch in "\"' \t") or not station:
+        raise AQICNError(
+            f"malformed station identifier {station!r} — expected something like "
+            "'@11739' or 'islamabad', with no quotes or whitespace. Check how "
+            "conf/cities.yaml was parsed."
+        )
 
     url = f"{base_url}/{station}/?token={token}"
     last_error: Exception | None = None

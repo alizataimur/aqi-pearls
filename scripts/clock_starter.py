@@ -30,6 +30,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -73,12 +74,46 @@ def load_dotenv() -> None:
             os.environ[key] = value.strip().strip("\"'")
 
 
+def _parse_scalar(raw: str) -> Any:
+    """Parse one YAML scalar the way `yaml.safe_load` would.
+
+    The fallback parser and PyYAML MUST agree exactly. When they did not, CI ran
+    a different code path from the developer's laptop and the clock starter
+    failed for 16 consecutive scheduled runs while passing locally — quoted
+    station ids came back as `'"@11739"'`, quote characters included, producing
+    a nonsense URL (ADR-012). `tests/test_yaml_fallback.py` now pins the
+    agreement.
+    """
+    value = raw.strip()
+    if value in ("", "null", "~"):
+        return None
+    if value in ("true", "True"):
+        return True
+    if value in ("false", "False"):
+        return False
+    # Quoted scalar: strip the quotes, exactly as a YAML loader does.
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1].strip()
+        return [_parse_scalar(part) for part in inner.split(",")] if inner else []
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        return value
+
+
 def load_cities() -> list[dict[str, Any]]:
     """Read conf/cities.yaml without requiring PyYAML at Day 0.
 
-    Day 0 must run on a bare Python. If PyYAML is present we use it; otherwise
-    a minimal parser handles this file's flat list-of-mappings shape. Once the
-    real pipeline exists, everything else goes through aqi.config.
+    Day 0 must run on a bare Python: a dependency resolution problem must never
+    be able to block a capture whose losses are permanent (CLAUDE.md §6). If
+    PyYAML is present we use it; otherwise the minimal parser below handles this
+    file's flat list-of-mappings shape and must produce an identical result.
     """
     path = REPO_ROOT / "conf" / "cities.yaml"
     text = path.read_text(encoding="utf-8")
@@ -93,7 +128,9 @@ def load_cities() -> list[dict[str, Any]]:
     cities: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
     for raw_line in text.splitlines():
-        line = raw_line.split("#", 1)[0].rstrip()
+        # Strip comments, but only a '#' at line start or after whitespace, so a
+        # '#' inside a quoted value survives.
+        line = re.split(r"(?:^|\s)#", raw_line, maxsplit=1)[0].rstrip()
         if not line.strip() or line.strip() == "cities:":
             continue
         stripped = line.strip()
@@ -105,34 +142,10 @@ def load_cities() -> list[dict[str, Any]]:
         if current is None or ":" not in stripped:
             continue
         key, _, value = stripped.partition(":")
-        value = value.strip()
-        if value in ("null", ""):
-            parsed: Any = None
-        else:
-            try:
-                parsed = float(value) if "." in value else int(value)
-            except ValueError:
-                parsed = value
-        current[key.strip()] = parsed
+        current[key.strip()] = _parse_scalar(value)
     if current:
         cities.append(current)
     return cities
-
-
-def write_step_summary(lines: list[str]) -> None:
-    """Append to `$GITHUB_STEP_SUMMARY` when running in Actions.
-
-    Plain `print` output only reaches someone with log-read access on the
-    repo; the step summary is exposed on the public Checks API
-    (`output.summary` on a check-run) even for a viewer with no special
-    permissions, which is what makes an unattended failure debuggable without
-    asking whoever holds admin rights to paste the log by hand.
-    """
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if not summary_path:
-        return
-    with open(summary_path, "a", encoding="utf-8") as handle:
-        handle.write("\n".join(lines) + "\n")
 
 
 def append_jsonl(path: Path, record: dict[str, Any]) -> None:
@@ -241,7 +254,6 @@ def main() -> int:
     load_dotenv()
     token = os.environ.get("AQICN_TOKEN", "").strip()
     if not token:
-        write_step_summary(["### clock-starter failed", "`AQICN_TOKEN` is not set."])
         print(
             "AQICN_TOKEN is not set. Get a free token at "
             "https://aqicn.org/data-platform/token/ and export it.",
@@ -252,14 +264,10 @@ def main() -> int:
     now = datetime.now(UTC).replace(microsecond=0)
     cities = load_cities()
     if not cities:
-        write_step_summary(
-            ["### clock-starter failed", "No cities in `conf/cities.yaml`."]
-        )
         print("no cities configured in conf/cities.yaml", file=sys.stderr)
         return 1
 
-    captured, skipped = [], []
-    failed: list[tuple[str, str]] = []
+    captured, failed, skipped = [], [], []
     for city in cities:
         city_id = str(city.get("id", "unknown"))
         if not city.get("aqicn_station"):
@@ -273,7 +281,7 @@ def main() -> int:
             captured.append(city_id)
         except (AQICNError, KeyError, ValueError, OSError) as exc:
             # One city failing must never abort the others (CLAUDE.md §8.3).
-            failed.append((city_id, str(exc)))
+            failed.append(city_id)
             print(f"[warn] {city_id}: {exc}", file=sys.stderr)
 
     print(
@@ -281,7 +289,7 @@ def main() -> int:
             {
                 "captured_at_utc": now.isoformat(),
                 "captured": captured,
-                "failed": [c for c, _ in failed],
+                "failed": failed,
                 "skipped": skipped,
                 "dry_run": args.dry_run,
             }
@@ -289,18 +297,6 @@ def main() -> int:
     )
 
     if not captured:
-        # Never write the token itself — only its length, so an empty or
-        # truncated secret is distinguishable from a live-API failure without
-        # ever risking the value leaking into a public step summary.
-        summary = [
-            "### clock-starter failed — every city failed",
-            f"`AQICN_TOKEN` length: {len(token)}",
-            "",
-            "| city | error |",
-            "|---|---|",
-            *[f"| {city_id} | {error} |" for city_id, error in failed],
-        ]
-        write_step_summary(summary)
         print(
             "[error] every city failed — the ledger has a permanent gap for this hour",
             file=sys.stderr,

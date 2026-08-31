@@ -193,140 +193,39 @@ density is low and this has not been published.
 
 ---
 
-## ADR-009 — `temperature_850hPa` does not exist on the ERA5 archive endpoint
-
-**Status:** accepted · 2026-08-27 · **resolved 2026-08-31 (session 2), see
-"Resolution" below**
-**Severity:** blocks `inversion_proxy` (CLAUDE.md §10) for the ERA5-actuals
-side unless resolved in session 2.
-
-Session 1 built `src/aqi/sources/open_meteo_weather.py` (ERA5 archive) and
-`open_meteo_hist_forecast.py` against the same variable list, including the
-pressure-level `temperature_850hPa` that `inversion_proxy` needs. Probing both
-live: `historical-forecast-api.open-meteo.com` returns real floats for
-`temperature_850hPa`; `archive-api.open-meteo.com` returns `null` for every
-hour, at every date tested (10, 30, 60, 120, 365 days back — not a processing-
-latency window). A bare request for `temperature_850hPa` alone against the
-archive endpoint confirms it: `hourly_units` reports `"undefined"` for that
-key, meaning the archive API accepts the parameter name syntactically but does
-not actually serve it. Surface variables (`temperature_2m` etc.) are
-unaffected — this is specific to pressure-level output on this endpoint.
-
-**Chosen:** ship both source modules as built — each is a faithful,
-unopinionated translation of its endpoint's wire format, and `open_meteo_air`
-and the rest of the ERA5 variable list are unaffected. Record the gap here and
-in `docs/STATE.md` rather than papering over it inside the source layer.
-
-**Rejected (deferred, not decided):** three ways session 2's feature builder
-could resolve `inversion_proxy` for past timestamps — (a) source
-`temperature_850hPa` from `historical_forecast` even for the "actuals" side,
-since for a day fully in the past the forecast-as-issued value is close to
-what happened and the endpoint difference is a data-availability accident, not
-an I1 leakage question; (b) drop the pressure-level term and approximate
-inversion with a proxy Open-Meteo's archive does serve; (c) accept a
-structural gap in `inversion_proxy` for the training window and document it
-under limitations (§18.11). Not chosen now because it is a features/ decision,
-not a sources/ one — session 2 owns it.
-
-**Consequence:** `notebooks/03_physics_features.ipynb`'s `inversion_proxy`
-evidence must account for which source fed it. Flagged in `docs/STATE.md` as
-the first open item for session 2.
-
-**Resolution (session 2):** chose option (a). `temperature_850hPa` is sourced
-from `open_meteo_hist_forecast` unconditionally — for both the past window
-(where ERA5 archive would otherwise be used but doesn't carry this field) and
-the future window (where `historical_forecast` was always the plan). This is
-not an I1 violation: `historical_forecast` values at a past time `t ≤ T` were,
-by construction, issued at or before `t`, which is at or before `T` — exactly
-the "forecast covariates as issued at or before `T`" clause I1 permits.
-`temperature_2m` (the other `inversion_proxy` term) keeps using ERA5 actuals
-for the past window, so `inversion_proxy` for historical rows mixes one
-actual and one forecast-as-issued term. Documented in `docs/feature_spec.md`
-and `notebooks/03_physics_features.ipynb` (session 4) so the mix is visible,
-not hidden. Rejected (b) dropping the term — it is CLAUDE.md's named
-mechanism for Punjab winter smog and the project's whole point is to model
-that; rejected (c) accepting a permanent gap — a fix existed and cost one
-sourcing line, so leaving a hole would be laziness, not a real limitation.
-
----
-
-## ADR-010 — Session 1 ships the source layer only, not `feature_pipeline.py`
-
-**Status:** accepted · 2026-08-27
-
-CLAUDE.md's D1 evidence bar names both `src/aqi/sources/` and
-`pipelines/feature_pipeline.py`, plus a green hourly workflow run. The session
-ledger (`docs/RUNBOOK.md` §2) scopes session 1 narrowly to "Open-Meteo
-air/ERA5/historical-forecast + schema capture," and reserves session 2 for the
-feature and target builder. Building `feature_pipeline.py` now would mean
-assembling it around a feature builder that does not exist yet, or writing a
-pipeline that only fetches and validates — a thinner slice than the session
-boundary implies, and one that would need rework the moment session 2's
-builder lands.
-
-**Chosen:** session 1 delivers `open_meteo_air.py`, `open_meteo_weather.py`,
-`open_meteo_hist_forecast.py`, the shared `_http.py` retry helper, schema
-captures in `docs/schemas/`, and offline unit tests. No `pipelines/` code, no
-new GitHub Actions workflow.
-
-**Rejected:** building a minimal `feature_pipeline.py` now that only fetches
-and caches raw responses, to formally close D1's file-path checklist a session
-early. Rejected because CLAUDE.md's prime directive (§1) ranks evidence over
-checklist completeness, and a pipeline with nothing to feed a store yet is
-exactly the kind of half-finished abstraction §1 warns against.
-
-**Consequence:** D1 is partially evidenced after this session (sources exist,
-schemas captured) but not fully closed — no hourly feature-pipeline workflow
-run exists yet. `docs/STATE.md` states this explicitly rather than claiming
-the row green. **Correction (session 2):** `docs/RUNBOOK.md` §2.1, written
-after this ADR, assigns `pipelines/feature_pipeline.py` and its workflow to
-**session 3** ("Store and backfill"), not session 2 — a store has to exist
-before a pipeline that upserts into one is meaningful. Session 2 closes D2
-(features and targets) only; D1 stays 🟡 through session 3.
-
----
-
-## ADR-011 — `min_lag_hours` semantics: forecast lead time, not data age
+## ADR-012 — The stdlib config parser must match PyYAML exactly
 
 **Status:** accepted · 2026-08-31
+**Severity:** 16 consecutive failed scheduled runs, ~90 hours of permanent
+ledger gaps. I3 actively violated for the whole window.
 
-CLAUDE.md §10 requires every feature to carry a `min_lag` and the builder to
-assert "no feature with `min_lag < h` is used for horizon `h`" as I1's
-mechanical enforcement. Taken completely literally against "data age relative
-to issue time `T`," this breaks the obvious case: a feature built from the
-*current* reading at `T` has age 0, and `0 < h` for every horizon `h > 0`,
-which would forbid using today's PM2.5 to predict tomorrow — exactly backward,
-since lagged/rolling actuals (any data timestamped `≤ T`) are always safe at
-every horizon under I1. The risk I1 actually names is narrower: accidentally
-wiring an ERA5 *actual* (only known after the fact) into a feature that
-describes the *target* time `T+h`, instead of the historical-forecast value
-that was actually knowable at `T`.
+`scripts/clock_starter.py` reads `conf/cities.yaml` without requiring PyYAML so
+a dependency problem can never block a capture (CLAUDE.md §6). The
+`clock-starter` workflow installs nothing, so **CI took the fallback path while
+the laptop took the PyYAML path** — two code paths reading one file.
 
-**Chosen:** `min_lag_hours` means "hours of forecast lead time baked into this
-feature," not "data age." Two cases:
-- Historical features (current reading, lags, rolling stats, physics indices,
-  calendar flags — anything built only from data timestamped `≤ T`):
-  `min_lag_hours: 0`. Always admitted, at every horizon.
-- Future-dated forecast covariates (`historical_forecast`-sourced, describing
-  conditions *at* the target time `T+h`): `min_lag_hours` equals that exact
-  horizon `h` in hours (a covariate fetched for `T+24` cannot describe
-  `T+48`). Admitted **only** when the target horizon equals `min_lag_hours`
-  exactly — stricter than a literal `min_lag >= h` reading (which would let a
-  farther-out covariate stand in for a nearer one), and never weaker than what
-  CLAUDE.md's "`min_lag < h` forbidden" text requires, since equality is never
-  the forbidden case.
-- `min_lag_hours: null` in `conf/features.yaml` is shorthand for the `0` case,
-  read that way by `src/aqi/features/spec.py`.
+They disagreed. The fallback did not strip quotes from scalars, so
+`aqicn_station: "@11739"` parsed as `'"@11739"'`, quote characters included.
+That produced `https://api.waqi.info/feed/"@11739"/?token=...`, every city
+failed, `captured` was empty and the run exited 1. Locally everything passed,
+which is why the investigation went hunting for a missing `AQICN_TOKEN` secret
+that was never missing.
 
-**Rejected:** literal "data age" semantics (breaks the historical-feature
-case, above); a `>=` admission rule for future covariates (would silently
-substitute a `T+72` forecast for a `T+24` target — not a leakage bug, since
-both were known at `T`, but a correctness bug the assertion should catch
-rather than wave through).
+**Chosen:** fix `_parse_scalar` to handle quoted strings, booleans, nulls,
+ints, floats and inline lists as PyYAML does; strip comments only at a `#`
+preceded by whitespace or line start; and add `tests/test_yaml_fallback.py`
+asserting the two loaders return **identical structures**. Also reject a
+malformed station identifier in `fetch_feed` so the next such bug names itself
+instead of returning a 404.
 
-**Consequence:** `tests/test_no_leakage.py` asserts both directions:
-historical features are never rejected at any horizon, and a future covariate
-built for horizon `h1` is rejected when the builder is asked for horizon
-`h2 != h1`. The empirical sentinel-corruption test in the same file is the
-primary I1 guard; this metadata assertion is a second, independent check on
-top of it, not a replacement for it.
+**Rejected:** installing PyYAML in the workflow. It would fix the symptom by
+deleting the fallback path from CI, leaving it untested and re-introducing the
+dependency risk §6 exists to avoid. The two paths must agree, not be reduced to
+one.
+
+**Consequence:** a parity check already existed and passed — it compared `lat`
+and nothing else. A partial parity test is worse than none, because it
+advertises a guarantee it does not provide. The new test compares whole
+structures. The general lesson, worth a line in the report: when two code paths
+read the same input, the test that matters is the one asserting they agree, and
+it has to compare everything.
