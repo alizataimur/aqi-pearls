@@ -1,4 +1,4 @@
-# Secrets — I9
+﻿# Secrets â€” I9
 .env
 *.pem
 
@@ -16,17 +16,17 @@ dist/
 .coverage
 htmlcov/
 
-# Notebook outputs are never committed (CLAUDE.md §16)
+# Notebook outputs are never committed (CLAUDE.md Â§16)
 .ipynb_checkpoints/
 
-# Local working data. NOTE the exceptions: the ledger IS committed — it is the
+# Local working data. NOTE the exceptions: the ledger IS committed â€” it is the
 # honesty infrastructure (I3) and losing it is unrecoverable.
 data/*
 !data/ledger/
 !data/ledger/**
 
 # ADR-014: the Parquet feature store fallback commits inside the repo until
-# an HF_TOKEN + dataset repo exist — same reasoning as the ledger, minus the
+# an HF_TOKEN + dataset repo exist â€” same reasoning as the ledger, minus the
 # irrecoverability (this one can be rebuilt from the backfill/feature
 # pipeline if it's ever lost, just not for free).
 !data/feature_store/
@@ -34,7 +34,7 @@ data/*
 !data/backfill_manifest.jsonl
 
 # Raw payloads split by whether they can be fetched again (ADR-006).
-# AQICN raw is irreplaceable — there is no history endpoint, and each CI run is
+# AQICN raw is irreplaceable â€” there is no history endpoint, and each CI run is
 # a fresh container, so anything not committed is gone. Commit it.
 !data/raw/
 data/raw/*
@@ -52,5 +52,5 @@ reports/**/*.tmp
 # Downloaded archives
 *.tar.gz
 
-# Derived feature store � regenerable via 'make backfill' (ADR-006)
-data/store/
+# Derived feature store — regenerable via 'make backfill' (ADR-006)
+data/feature_store/
