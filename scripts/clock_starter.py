@@ -119,6 +119,22 @@ def load_cities() -> list[dict[str, Any]]:
     return cities
 
 
+def write_step_summary(lines: list[str]) -> None:
+    """Append to `$GITHUB_STEP_SUMMARY` when running in Actions.
+
+    Plain `print` output only reaches someone with log-read access on the
+    repo; the step summary is exposed on the public Checks API
+    (`output.summary` on a check-run) even for a viewer with no special
+    permissions, which is what makes an unattended failure debuggable without
+    asking whoever holds admin rights to paste the log by hand.
+    """
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    with open(summary_path, "a", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
+
+
 def append_jsonl(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
@@ -225,6 +241,7 @@ def main() -> int:
     load_dotenv()
     token = os.environ.get("AQICN_TOKEN", "").strip()
     if not token:
+        write_step_summary(["### clock-starter failed", "`AQICN_TOKEN` is not set."])
         print(
             "AQICN_TOKEN is not set. Get a free token at "
             "https://aqicn.org/data-platform/token/ and export it.",
@@ -235,10 +252,14 @@ def main() -> int:
     now = datetime.now(UTC).replace(microsecond=0)
     cities = load_cities()
     if not cities:
+        write_step_summary(
+            ["### clock-starter failed", "No cities in `conf/cities.yaml`."]
+        )
         print("no cities configured in conf/cities.yaml", file=sys.stderr)
         return 1
 
-    captured, failed, skipped = [], [], []
+    captured, skipped = [], []
+    failed: list[tuple[str, str]] = []
     for city in cities:
         city_id = str(city.get("id", "unknown"))
         if not city.get("aqicn_station"):
@@ -252,7 +273,7 @@ def main() -> int:
             captured.append(city_id)
         except (AQICNError, KeyError, ValueError, OSError) as exc:
             # One city failing must never abort the others (CLAUDE.md §8.3).
-            failed.append(city_id)
+            failed.append((city_id, str(exc)))
             print(f"[warn] {city_id}: {exc}", file=sys.stderr)
 
     print(
@@ -260,7 +281,7 @@ def main() -> int:
             {
                 "captured_at_utc": now.isoformat(),
                 "captured": captured,
-                "failed": failed,
+                "failed": [c for c, _ in failed],
                 "skipped": skipped,
                 "dry_run": args.dry_run,
             }
@@ -268,6 +289,18 @@ def main() -> int:
     )
 
     if not captured:
+        # Never write the token itself — only its length, so an empty or
+        # truncated secret is distinguishable from a live-API failure without
+        # ever risking the value leaking into a public step summary.
+        summary = [
+            "### clock-starter failed — every city failed",
+            f"`AQICN_TOKEN` length: {len(token)}",
+            "",
+            "| city | error |",
+            "|---|---|",
+            *[f"| {city_id} | {error} |" for city_id, error in failed],
+        ]
+        write_step_summary(summary)
         print(
             "[error] every city failed — the ledger has a permanent gap for this hour",
             file=sys.stderr,
