@@ -29,8 +29,6 @@ data/*
 # an HF_TOKEN + dataset repo exist â€” same reasoning as the ledger, minus the
 # irrecoverability (this one can be rebuilt from the backfill/feature
 # pipeline if it's ever lost, just not for free).
-!data/feature_store/
-!data/feature_store/**
 !data/backfill_manifest.jsonl
 
 # Raw payloads split by whether they can be fetched again (ADR-006).
