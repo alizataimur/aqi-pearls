@@ -131,6 +131,24 @@ class TestNowCast:
         assert nowcast is not None
         assert nowcast.aqi != raw.aqi
 
+    def test_nan_float_is_treated_as_missing_like_none(self) -> None:
+        """Regression: pandas/numpy represent a real data gap as NaN, not
+        None. `_add_derived` (builder.py) feeds this function raw numpy
+        window slices, and a NaN silently let through the old `v is not
+        None` check propagated into the weighted average, then crashed
+        `_truncate`'s `math.floor` — first caught by running the backfill
+        against live CAMS history near its 2022-08-04 floor, where the lag
+        window legitimately contains hours before any data exists."""
+        nan = float("nan")
+        with_nan = aqi_nowcast([nan, 20.0, 20.0] + [20.0] * 9, "pm2_5")
+        with_none = aqi_nowcast([None, 20.0, 20.0] + [20.0] * 9, "pm2_5")
+        assert with_nan is not None
+        assert with_none is not None
+        assert with_nan.aqi == with_none.aqi
+
+    def test_all_nan_window_returns_none(self) -> None:
+        assert aqi_nowcast([float("nan")] * 12, "pm2_5") is None
+
 
 class TestCategories:
     @pytest.mark.parametrize(

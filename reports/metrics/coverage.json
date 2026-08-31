@@ -1,0 +1,23 @@
+{
+  "generated_at_utc": "2026-08-31T15:41:29.226403+00:00",
+  "requested_end": "2026-08-29",
+  "requested_start": "2022-08-04",
+  "zones": {
+    "capital": {
+      "completed_months": 49,
+      "expected_months": 49,
+      "first_time_utc": "2022-08-01T00:00:00+00:00",
+      "gap_months": [],
+      "last_time_utc": "2026-08-31T23:00:00+00:00",
+      "total_rows": 35808
+    },
+    "lahore": {
+      "completed_months": 49,
+      "expected_months": 49,
+      "first_time_utc": "2022-08-01T00:00:00+00:00",
+      "gap_months": [],
+      "last_time_utc": "2026-08-31T23:00:00+00:00",
+      "total_rows": 35808
+    }
+  }
+}

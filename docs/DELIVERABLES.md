@@ -30,14 +30,16 @@ like AQICN or OpenWeather."*
 
 | | |
 |---|---|
-| Lives in | `src/aqi/sources/` — `open_meteo_air.py`, `open_meteo_weather.py`, `open_meteo_hist_forecast.py`, `aqicn.py` |
-| Evidence | `pytest tests/test_open_meteo_sources.py tests/test_aqicn_station.py` · captured contracts in `docs/schemas/` |
-| Outstanding | `pipelines/feature_pipeline.py` and the hourly workflow — session 3, once a store exists (ADR-010) |
+| Lives in | `src/aqi/sources/`, `src/aqi/pipelines/feature_pipeline.py`, `.github/workflows/feature-pipeline.yml` |
+| Evidence | `pytest tests/test_open_meteo_sources.py tests/test_aqicn_station.py tests/test_feature_pipeline.py` · captured contracts in `docs/schemas/` · `python -m aqi.pipelines.feature_pipeline` upserts both zones live (verified this session against the real Open-Meteo APIs) |
+| Outstanding | The workflow is written and YAML-validated but has not yet had a confirmed green run in the Actions tab — needs this session's commit pushed and either the first scheduled run or a manual `workflow_dispatch` to close the loop, same gate `clock-starter` cleared in session 0 |
 
 **Done distinctively:** four sources rather than one, including the Open-Meteo **historical-forecast
 archive** — the source that makes leakage-safe future covariates possible at all (CLAUDE.md I1).
 Station identifiers are pinned and every capture is distance-verified after the nearest-station
-lookup silently returned a Delhi station for three Pakistani cities (ADR-007).
+lookup silently returned a Delhi station for three Pakistani cities (ADR-007). The hourly pipeline
+refreshes a 5-day trailing window on every run (not just the newest hour), so `target_daily_aqi_h*`
+fills in as each local day completes rather than staying permanently NaN.
 
 ### D2 — Compute features and targets, including time-based and derived ✅
 
@@ -60,33 +62,49 @@ reading after the issue time with a sentinel, rebuilds, and asserts nothing move
 control proving the test isn't vacuous. All 235 declared features round-trip against the builder's
 real output columns via a schema test — `conf/features.yaml` cannot silently drift from the code.
 
-### D3 — Store features in a Feature Store ⬜
+### D3 — Store features in a Feature Store 🟡
 
 **Brief:** *"Stores these features in the Feature store. You may want to explore Hopsworks or Vertex
 AI (Free tiers)."*
 
 | | |
 |---|---|
-| Lives in | `src/aqi/store/hopsworks_store.py`, `src/aqi/store/parquet_store.py` |
-| Evidence | Populated feature group; row count recorded in `docs/STATE.md`; `pytest tests/test_store_parity.py` |
+| Lives in | `src/aqi/store/base.py` (Protocol), `src/aqi/store/parquet_store.py`, `src/aqi/store/hopsworks_store.py` |
+| Evidence | `pytest tests/test_store_parity.py` (4 passed on Parquet; Hopsworks half **skipped**, not faked); Parquet backend populated live by this session's backfill — **71,616 rows** (`capital`: 35,808, `lahore`: 35,808), 245 columns, 2022-08-04→2026-08-31, `data/feature_store/` |
+| Outstanding | `HOPSWORKS_API_KEY`/`HOPSWORKS_PROJECT` are both empty in `.env` — no Hopsworks project exists yet (RUNBOOK §5 assigns creating it to Aliza). `HopsworksFeatureStore` is written against the documented 4.x SDK surface but has never run against a live project |
 
-**Done distinctively:** two backends behind one `Protocol`, passing an identical test suite. The
-fallback is not a nice-to-have — it is what keeps the demo alive when a free tier goes down, and it
-is itself an engineering-judgment result worth reporting.
+**Done distinctively:** two backends behind one `Protocol`, passing an identical test suite — the
+Hopsworks half is skipped rather than mocked when its credentials are absent, which is an honest
+"not yet verified" rather than a green check that doesn't mean what it says. The Parquet fallback
+is not a nice-to-have — it is what keeps the demo alive when a free tier goes down (I10), and it is
+itself an engineering-judgment result worth reporting: it lives inside the repo
+(`data/feature_store/`, `city=/year=/month=` partitioned) rather than an HF Dataset repo, because no
+`HF_TOKEN` exists yet either (ADR-014) — a decision made autonomously and written down, not silently
+deferred.
 
-### D4 — Backfill historical (features, targets) over past dates ⬜
+### D4 — Backfill historical (features, targets) over past dates ✅
 
 **Brief:** *"Run the feature script from step 1 for a range of past dates, to generate training data
 for your ML models."*
 
 | | |
 |---|---|
-| Lives in | `pipelines/backfill.py` |
-| Evidence | `reports/metrics/coverage.json` — first date, last date, and every gap |
+| Lives in | `src/aqi/pipelines/backfill.py` |
+| Evidence | `pytest tests/test_backfill.py` (manifest round-trip, chunk boundaries, coverage report); `reports/metrics/coverage.json` — generated from the manifest, never hand-typed (I5); run `python -m aqi.pipelines.backfill --coverage-only` to regenerate |
 
-**Done distinctively:** chunked and resumable per city-month with a manifest, so a multi-year pull
-that dies at 80% resumes rather than restarts. Backfill runs to the **probed** CAMS floor of
-2022-08-04, not an assumed date.
+**Confirmed this session, live:** 2022-08-04 → 2026-08-29, both zones, **zero gaps** —
+`reports/metrics/coverage.json` shows 49/49 months completed for `capital` and `lahore` alike,
+35,808 rows each (71,616 total, 245 columns, ~61MB as committed Parquet).
+
+**Done distinctively:** chunked and resumable per **zone**-month (ADR-013: `capital`, `lahore` — not
+the three names in `conf/cities.yaml`, since Islamabad and Rawalpindi are one CAMS grid cell per
+ADR-008 and backfilling both would double every API call for zero information) with an append-only
+manifest, so a multi-year pull that dies partway resumes rather than restarts — proven for real, not
+just in a unit test: this session's live run hit a genuine bug (`aqi_nowcast` treating a NaN float as
+present rather than missing, crashing on the pre-2022-08-04 lag context — fixed, regression-tested in
+`tests/test_aqi_scale.py`), was killed mid-run, and resumed cleanly from the manifest with zero
+reprocessing of already-completed months. Backfill runs to the **probed** CAMS floor of 2022-08-04,
+not an assumed date.
 
 ---
 

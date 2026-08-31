@@ -15,7 +15,7 @@ Lahore, explained in plain Urdu and English, running on $0 of serverless infrast
 ## What makes it different
 
 Most AQI projects report an average RMSE and stop. Average RMSE is dominated by ordinary days when
-the AQI is 80 and the model guesses 82. Nobody in Rawalpindi is asking that question. They are
+the AQI is 80 and the model guesses 82. Nobody in Pakistan is asking that question. They are
 asking *"is Thursday a keep-the-kids-home day, and will I know in time?"*
 
 So this one is built around four things instead:
@@ -36,9 +36,11 @@ So this one is built around four things instead:
 ```bash
 pip install -e ".[dev]"
 cp .env.example .env          # add your free AQICN token
-make test                     # 44 tests, incl. the EPA conversion suite
+make test                     # full suite, incl. the EPA conversion + leakage tests
 make clock-dry                # see what the ledger capture would write
 make probe                    # answer the open data questions with data
+make backfill                 # resumable, chunked pull to the CAMS floor
+make features                 # one hourly feature-pipeline run, both zones
 ```
 
 ## Start the clock first
@@ -65,8 +67,9 @@ Kept here rather than buried, because they are load-bearing:
 
 - Training labels are **CAMS reanalysis, not instrument measurements**. Ground stations serve as
   truth and benchmark; the disagreement between them is measured, not hidden.
-- CAMS global resolution is ~0.4° (~45 km). Islamabad and Rawalpindi very likely fall in **one grid
-  cell** — `make probe` settles it, and if so they are reported as one forecast zone, not two cities.
+- CAMS global resolution is ~0.4° (~45 km). `make probe` confirmed Islamabad and Rawalpindi return
+  **byte-identical** CAMS series — one grid cell, reported as one modelled forecast zone
+  (`capital`), not two independently-modelled cities.
 - The scorecard covers exactly the days in the ledger. No backfilled benchmarks, ever.
 
 ## Licence

@@ -229,3 +229,79 @@ advertises a guarantee it does not provide. The new test compares whole
 structures. The general lesson, worth a line in the report: when two code paths
 read the same input, the test that matters is the one asserting they agree, and
 it has to compare everything.
+
+---
+
+## ADR-013 — Store and backfill operate per forecast zone, not per named city
+
+**Status:** accepted · 2026-08-31
+
+`conf/cities.yaml` lists three named cities; ADR-008 already established that
+Islamabad and Rawalpindi return **byte-identical** CAMS pollutant series (one
+~0.4° grid cell, two names). Session 3 has to decide what `city_id` means in
+the feature store and the backfill manifest, and the literal reading —
+backfill and store all three names — was never actually decided anywhere.
+
+**Chosen:** the feature store, the backfill manifest and `feature_pipeline.py`
+all key on **zone_id** (`capital`, `lahore`), not on the three names in
+`cities.yaml`. `capital` uses Islamabad's coordinates (it has the pinned AQICN
+station and is the zone's CAMS grid reference; Rawalpindi's grid cell is
+provably the same series). `conf/cities.yaml` is unchanged and still names all
+three — it remains the source of truth for AQICN capture (clock-starter) and
+for display (the dashboard shows "Islamabad / Rawalpindi" as one forecast with
+two station readings). `src/aqi/config.py`'s `zones()` derives the two zones
+from it.
+
+**Rejected:** backfilling and storing Islamabad and Rawalpindi as two
+independent feature-store series. It would silently double every CAMS API call
+and every stored row for zero informational gain — the two series are
+identical by construction — and would let a future session accidentally train
+two "different" city models on the same underlying data, which is a worse bug
+than the one ADR-008 already found once.
+
+**Consequence:** the feature store contains two `city_id` values (`capital`,
+`lahore`), not three. The model ladder (session 5) trains one model per zone.
+The dashboard (session 10) must present `capital`'s forecast under both city
+names with the divergence caveat from ADR-008, rather than implying two
+independently-modelled cities. Worth a explicit line in the report's data
+section — it is the same honesty move as ADR-008 itself, carried through to
+the store.
+
+---
+
+## ADR-014 — Parquet fallback commits to the repo, not an HF Dataset, until `HF_TOKEN` exists
+
+**Status:** accepted · 2026-08-31
+
+CLAUDE.md §11.1 specifies the Parquet fallback lives on a Hugging Face Dataset
+repo in CI (writable with a token) and as plain local Parquet in dev. Session
+3 needs the fallback to actually work in CI today, and `.env` currently has
+`HOPSWORKS_API_KEY`, `HOPSWORKS_PROJECT` and `HF_TOKEN` all empty — none of the
+three accounts RUNBOOK §5 assigns to Aliza for session 3 ("create the Hopsworks
+project and the HF dataset repo") have been created yet. That is a credential
+block, not a design question, so per the session prompt's own escape hatch the
+reasonable default is chosen and recorded here rather than the whole session
+stopping to wait for it.
+
+**Chosen:** `ParquetFeatureStore`'s default root is `data/feature_store/` inside
+the repo, partitioned `city=/year=/month=/data.parquet` exactly as §11.1
+specifies, written by the same GitHub Actions identity that already commits
+`data/ledger/` (`clock-starter[bot]`-style commit, rebase-and-retry on push
+race). `ParquetFeatureStore` takes the root as a constructor argument, so
+pointing it at an HF Dataset repo checkout later is a one-line change in
+`feature_pipeline.py`/`backfill.py`, not a rewrite.
+
+**Rejected:** blocking session 3 on Aliza creating the HF account first (the
+credential-block escape hatch exists for exactly this, but a repo-committed
+Parquet store is a strictly *more* useful interim state than an empty one —
+the dashboard's `--static` mode and the whole D4 backfill can run against it
+today); requiring `HF_TOKEN` and failing the workflow if it's absent (that
+would silently stop D1's hourly workflow the moment this session ends, which
+is the same class of mistake session 0 exists to prevent).
+
+**Consequence:** `data/feature_store/**` will grow the repo — acceptable at the
+scale of two zones' hourly features (nowhere near AQICN's raw-payload
+volume this isn't). If Aliza supplies `HF_TOKEN` and creates the dataset repo,
+switching the root to a synced checkout of it is the only change needed;
+nothing about `ParquetFeatureStore`'s interface changes. Flagged to Aliza in
+this session's five-line report as a "needs me" item, same as Hopsworks.

@@ -1,4 +1,4 @@
-.PHONY: setup test lint clock clock-dry probe backfill features train predict benchmark api app report
+.PHONY: setup test lint clock clock-dry probe backfill coverage features train predict benchmark api app report
 
 # Load .env if present so `make clock` works from a checkout without exporting
 # anything by hand. .env is gitignored (I9); CI uses GitHub Secrets instead and
@@ -27,7 +27,17 @@ clock-dry:            ## same, but print instead of writing
 probe:                ## answer the §8.2 open questions with data
 	python scripts/probe_sources.py
 
-# ---- Stage 2+ : not yet implemented ------------------------------------------
-backfill features train predict benchmark api app report:
+# ---- Stage 2 : store + backfill (session 3) -----------------------------------
+backfill:             ## resumable, chunked backfill to conf/config.yaml's backfill_start
+	python -m aqi.pipelines.backfill
+
+coverage:             ## regenerate reports/metrics/coverage.json from the manifest, no fetching
+	python -m aqi.pipelines.backfill --coverage-only
+
+features:             ## one hourly feature-pipeline run, both zones
+	python -m aqi.pipelines.feature_pipeline
+
+# ---- Stage 3+ : not yet implemented --------------------------------------------
+train predict benchmark api app report:
 	@echo "'$@' is not implemented yet — see docs/STATE.md for the current stage."
 	@exit 1

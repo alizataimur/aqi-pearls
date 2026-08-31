@@ -273,8 +273,15 @@ def aqi_nowcast(
     changing fast, which is why a raw hourly reading is not a valid "current
     AQI". Returns ``None`` when EPA's data-sufficiency rule fails: at least two
     of the three most recent hours must be present.
+
+    A missing hour may arrive as ``None`` (this module's own convention) or as
+    a NaN ``float`` (pandas/numpy's convention for a real data gap, e.g. hours
+    before CAMS' history floor) — both are treated as "missing". Silently
+    letting a NaN through into the weighted average was a real bug caught by
+    running the backfill against live data: it produced a NaN nowcast
+    concentration that crashed `_truncate` rather than a clean `None` return.
     """
-    window = list(hourly[:12])
+    window = [None if (v is None or math.isnan(v)) else v for v in hourly[:12]]
     if len(window) < 3:
         return None
     if sum(1 for v in window[:3] if v is not None) < 2:

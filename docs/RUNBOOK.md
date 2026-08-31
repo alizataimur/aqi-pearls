@@ -74,6 +74,9 @@ underlying command directly:
 | `make clock-dry` | `python scripts/clock_starter.py --dry-run` |
 | `make clock` | `python scripts/clock_starter.py` |
 | `make probe` | `python scripts/probe_sources.py` |
+| `make backfill` | `python -m aqi.pipelines.backfill` |
+| `make coverage` | `python -m aqi.pipelines.backfill --coverage-only` |
+| `make features` | `python -m aqi.pipelines.feature_pipeline` |
 
 The scripts read `.env` themselves rather than relying on `make` to export it, so they behave
 identically on every platform.

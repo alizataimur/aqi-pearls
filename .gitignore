@@ -25,6 +25,14 @@ data/*
 !data/ledger/
 !data/ledger/**
 
+# ADR-014: the Parquet feature store fallback commits inside the repo until
+# an HF_TOKEN + dataset repo exist — same reasoning as the ledger, minus the
+# irrecoverability (this one can be rebuilt from the backfill/feature
+# pipeline if it's ever lost, just not for free).
+!data/feature_store/
+!data/feature_store/**
+!data/backfill_manifest.jsonl
+
 # Raw payloads split by whether they can be fetched again (ADR-006).
 # AQICN raw is irreplaceable — there is no history endpoint, and each CI run is
 # a fresh container, so anything not committed is gone. Commit it.
