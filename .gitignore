@@ -51,3 +51,6 @@ reports/**/*.tmp
 
 # Downloaded archives
 *.tar.gz
+
+# Derived feature store — regenerable via 'make backfill' (ADR-006)
+data/store/
