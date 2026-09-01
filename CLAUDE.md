@@ -408,11 +408,21 @@ training window, feature-group version, git SHA, per-horizon metrics, conformal 
 artifacts, and the champion/challenger flag. **A model without its metrics attached must not be
 promoted.**
 
-**Promotion gate.** Offline: a challenger replaces the champion only if it improves the primary
-metric (§12.3) on the held-out test window *and* does not regress hazardous-event recall by more
-than 2 points. Ledger-based promotion switches on **only once the ledger holds ≥30 days** — before
-that the ledger is reported, never used for gating. Never gate on a window longer than the project
-itself; a 90-day rolling ledger will not exist by submission. Log every promotion decision.
+**Promotion gate, as originally specified.** Offline: a challenger replaces the champion only if it
+improves the primary metric (§12.3) on the held-out test window *and* does not regress
+hazardous-event recall by more than 2 points. Ledger-based promotion switches on **only once the
+ledger holds ≥30 days** — before that the ledger is reported, never used for gating. Never gate on a
+window longer than the project itself; a 90-day rolling ledger will not exist by submission.
+
+**What actually gates promotion (session 5, ADR-021):** `registry.promote_champion()` is called
+unconditionally on whichever model wins §12.3's substitute metric (lowest mean RMSE) — there is no
+recall-regression check, no false-alarm check, and no comparison against a prior champion anywhere in
+`training_pipeline.py` or `registry.py`. This is also, mechanically, a **first registration, not a
+challenger swap**: no champion existed before this session's run, so the "replaces the champion only
+if" comparison this paragraph describes has not actually executed even once yet. Ledger-based
+promotion has not switched on either — the ledger holds under a day of history (§8), nowhere near the
+30-day floor. Log every promotion decision — this part shipped as specified; `champion.json` records
+`selection_rule`, `selection_value` and `promoted_at` on every call.
 
 ### 11.3 The forecast ledger — the honesty infrastructure
 
@@ -461,8 +471,8 @@ model — never re-implemented inside a model module.
 
 ### 12.3 One primary metric
 
-Everything else is diagnostic. The number that decides whether a challenger ships, and the number
-the report leads with:
+Everything else is diagnostic. **As originally specified**, the number meant to decide whether a
+challenger ships, and the number the report was meant to lead with:
 
 > **Median lead time on AQI > 200 episodes at D+1**, subject to two guardrails: hazardous-event
 > recall ≥ persistence's recall, and false-alarm ratio ≤ 0.5 over the test window.
@@ -471,6 +481,19 @@ Why lead time rather than recall: recall answers *did the model catch it*. Lead 
 time for anyone to act*. A forecast that flags Thursday's episode on Thursday morning has perfect
 recall and zero value. Lead time is also where AQICN is weakest, so it is where a win is most
 plausible — and if you lose on it, that is the most interesting loss in the report.
+
+**What actually gates promotion and produced the current champion (session 5, ADR-021):** lead time
+was never computed — it needs `evaluation/episodes.py` and a populated ledger, both cut alongside
+conformal prediction (§14, ADR-021). The registry's champion selection instead picks whichever ladder
+entry (baseline or ML, per I6) has the **lowest mean RMSE across h24/h48/h72** on the smog-season
+test window — `training_pipeline.py`'s `champion_name = min(mean_rmse, key=...)`, with no guardrail
+check of any kind (no recall floor, no false-alarm ceiling — neither is implemented). This is a
+substitute, not a relabelling: `champion.json`'s `selection_rule` field and `ladder.json`'s
+`primary_metric_note` both say so explicitly, precisely so nobody reading the registry mistakes mean
+RMSE for this section's real primary metric. The mean-RMSE champion is **SARIMAX** — see §12.1's
+table. Whichever session builds the episode/ledger machinery should re-run promotion under the real
+rule above; that may produce a different champion, and this session's registration is not assumed
+final.
 
 ### 12.4 Everything else (diagnostic)
 
