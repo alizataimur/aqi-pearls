@@ -41,7 +41,14 @@ def fetch_zone_frame(
         zone.lat, zone.lon, start_date=start_date, end_date=end_date
     )
     time.sleep(sleep_seconds)
-    era5_payload = fetch_weather_archive(zone.lat, zone.lon, start_date, end_date)
+    # ERA5 archive is actuals-only (module docstring, CLAUDE.md I1) — it has
+    # no data past "today" and 400s if asked for one. CAMS and the
+    # historical-forecast archive legitimately serve `end_date` up to
+    # `now + TAIL_CONTEXT_DAYS` (feature_pipeline.py); ERA5 must not receive
+    # that same future-dated end_date, so it is clamped to today here.
+    today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    era5_end_date = min(end_date, today)
+    era5_payload = fetch_weather_archive(zone.lat, zone.lon, start_date, era5_end_date)
     time.sleep(sleep_seconds)
     hist_fc_payload = fetch_historical_forecast(zone.lat, zone.lon, start_date, end_date)
     time.sleep(sleep_seconds)
