@@ -8,10 +8,17 @@
 **Updated:** 2026-09-01
 **Repo status:** public, pushed — https://github.com/alizataimur/aqi-pearls
 **Live dashboard:** <https://aqi-pearls-predictor.streamlit.app/> — confirmed rendering on the
-**live model path**, not the static-snapshot fallback, after ADR-031's fix (verified via a fresh
-`git clone`, not the working tree — see below). Runs entirely on the I10 direct-store/registry
-fallback path today, not the API: no FastAPI service is deployed anywhere, so `_api_get()` always
-fails over to `serving/inference.py` directly. See D10.
+**live model path**, not the static-snapshot fallback, after ADR-033's data migration (ADR-031's fix
+alone was OS-native and didn't survive the fresh-clone-on-this-Windows-machine reproduction that
+"confirmed" it — see ADR-033). Re-verified via a *second* fresh clone with the real repo's registry
+moved aside: `Predicted daily max AQI: 101 / 97 / 93` rendered on the 3-day forecast page, no banner.
+Runs entirely on the I10 direct-store/registry fallback path today, not the API: no FastAPI service
+is deployed anywhere, so `_api_get()` always fails over to `serving/inference.py` directly. See D10.
+**CI:** green as of `f6e1622` — confirmed from the real Actions run (jobs API), not a local pass. Two
+fixes were needed: installing the `serve`/`models` extras CI had never installed (mypy was silently
+skipping fastapi/torch-touching code — four same-day bugs traced to local/CI dependency divergence),
+then a second, genuinely different failure the first fix introduced (shap 0.52.0 has no cp311 wheel,
+CI's Python is 3.11) — see the CI section below.
 **Held-out test window (I2):** the **2025-26 smog season** (Oct 2025 – Feb 2026) — see ADR-016. It
 is the most recent complete season with both `boundary_layer_height` series (observed and
 historical-forecast) fully populated; earlier seasons either predate the forecast-BLH archive's
@@ -115,6 +122,54 @@ and the four `ALERT_EMAIL_*` values, in `.env` locally and as GitHub Secrets
 for `alerts.yml`. No live email has been sent from this session (mocked SMTP
 only in tests) — D14 stays 🟡 for that reason, same class of gap as
 Telegram's un-exercised send path before it.
+
+---
+
+## Post-session-6 finding — the artifact-path fix needed a data migration (ADR-033)
+
+`resolve_artifact_path()` (ADR-031) was necessary but not sufficient. Found by
+the user reading a committed `metadata.json` directly: fixing the *writer*
+never migrated the 24 files the *old* writer had already committed, and the
+reader's own `Path(stored).name` was OS-native — correct on this Windows dev
+machine (where every "fresh clone" reproduction so far had also run),
+silently wrong on Streamlit Cloud's Linux container, where backslash isn't a
+path separator at all. Fixed both: migrated every committed `metadata.json`
+to a bare filename, and switched the reader to `pathlib.PureWindowsPath`
+explicitly, which parses Windows-style paths correctly regardless of the
+host OS. Two new regression tests at different layers (the function, and the
+committed data itself) — see ADR-033 for the full account of why one test
+alone would have missed this again.
+
+## CI — red on every commit, now green (verified from the real run)
+
+`ci.yml` only ever installed `.[dev]`, never the `serve`/`models` extras —
+mypy silently treated `fastapi` and `torch` as missing on every CI run,
+which strict mode turns into real errors (`serving/api.py`'s decorators,
+`models/deep.py`'s `nn.Module` subclass) that never appeared locally, since
+every dev machine that's touched this repo already has those extras
+installed. Fourth same-day bug traced to local/CI divergence.
+
+Fixed in two pushes, both confirmed against the real GitHub Actions run via
+the public Checks/Jobs API (`/repos/.../commits/{sha}/check-runs`,
+`/repos/.../actions/runs/{id}/jobs`) — not assumed from a local pass:
+
+1. `a16b8f1` installed `.[dev,serve]` plus the `models` extra's packages
+   individually (torch pinned to the CPU-only wheel index, ~180MB vs. the
+   default index's ~800MB CUDA build — same version, ADR-019, so mypy sees
+   identical `nn.Module` types in CI and locally). **This run's own Install
+   step failed** — checked the jobs API, not assumed green.
+2. Root cause: `shap==0.52.0` (`pyproject.toml`'s pin, ADR-028 — chosen to
+   work around *this Windows/Python-3.13 dev machine* having no MSVC
+   toolchain) has no prebuilt wheel for cp311 at all (confirmed via PyPI's
+   JSON API), and CI's Python is 3.11. `f6e1622` pins `shap==0.46.0` in CI
+   specifically, which does have a real manylinux cp311 wheel — harmless to
+   mypy either way, since `shap.*` is already in the `ignore_missing_imports`
+   override (only import-resolves, never inspected). Every other package
+   this workflow installs was checked against PyPI's file listing directly
+   before this push, not assumed.
+
+**Confirmed green**, `f6e1622`, all steps: Install, Lint, Types, Tests,
+Leakage test (I1) — <https://github.com/alizataimur/aqi-pearls/actions/runs/33521154305>.
 
 ---
 
