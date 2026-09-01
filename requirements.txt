@@ -1,6 +1,39 @@
+# Runtime dependencies for the deployed Streamlit dashboard (D9, D10).
+#
+# This file is NOT just the dashboard's own imports. `app/streamlit_app.py`
+# imports the `aqi` package, so every module that package imports at load time
+# has to be installable here too — that is what the joblib/shap crashes were.
+#
+# Pins match pyproject.toml exactly, so the deployed app runs the same versions
+# as CI and the training runs (CLAUDE.md §16).
+
+# --- dashboard -------------------------------------------------------------
 streamlit==1.41.1
-pandas==2.2.3
-numpy==2.1.3
-pyyaml==6.0.2
 plotly==5.24.1
 requests==2.32.3
+
+# --- core data -------------------------------------------------------------
+pandas==2.2.3
+numpy==2.1.3
+pyarrow==18.1.0
+pyyaml==6.0.2
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# --- model loading and explanation -----------------------------------------
+# joblib: imported directly by src/aqi/serving/inference.py to unpickle the
+#   registered champion. It arrives as a scikit-learn dependency anyway, but
+#   a direct import earns a direct pin.
+# scikit-learn / lightgbm / statsmodels: needed to *unpickle* the registry
+#   artefacts, not merely to train them — a pickle carries a class reference,
+#   so the defining library must be importable at load time.
+# shap: imported by src/aqi/explain/shap_explain.py for the Why page (D13).
+joblib==1.4.2
+scikit-learn==1.6.0
+lightgbm==4.5.0
+statsmodels==0.14.4
+shap==0.46.0
+
+# Deliberately absent: torch (~800 MB — it would exceed the free tier's image
+# budget, and the LSTM rung is a row in the ladder table, never a serving path)
+# and mapie (evaluation-time only). Neither is imported by the dashboard.
