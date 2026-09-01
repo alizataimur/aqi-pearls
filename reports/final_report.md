@@ -388,27 +388,30 @@ and is described in §11.
 
 | Workflow | Cadence | Purpose | State |
 |---|---|---|---|
-| `clock-starter` | hourly | AQICN observation + published forecast → ledger | 🟡 8/24 green, last success 2026-09-01T18:25:02Z |
-| `feature-pipeline` | hourly | fetch → validate → engineer → upsert | 🔴 0/5 green as of this report |
-| `alerts` | 6-hourly | evaluate alert rules, send notification | 🔴 0/2 green as of this report |
-| `ci` | on push | ruff, mypy, pytest, leakage test | 🟢 16/33 green, last success 2026-09-01T19:02:46Z |
+| `clock-starter` | hourly | AQICN observation + published forecast → ledger | 🟡 8/25 green, last success 2026-09-01T18:25:02Z |
+| `feature-pipeline` | hourly | fetch → validate → engineer → upsert | 🟡 1/9 green, last success 2026-09-01T20:30:14Z |
+| `alerts` | 6-hourly | evaluate alert rules, send notification | 🟡 2/4 green, last success 2026-09-01T21:16:20Z |
+| `ci` | on push | ruff, mypy, pytest, leakage test | 🟢 19/37 green, last success 2026-09-01T20:28:09Z |
 
 Read from the GitHub Actions API (`/repos/alizataimur/aqi-pearls/actions/workflows/{name}/runs`),
 all runs since each workflow's first run — every workflow here first ran on or after 2026-08-27, so
 "since 2026-08-27" and "all-time" are the same window:
 
-- **`clock-starter`**: 8/24 green. The 16 failures are the single outage in §7.1
+- **`clock-starter`**: 8/25 green. The 16 failures are the single outage in §7.1
   (2026-08-27 → 2026-08-31); the workflow has been green on every run since it was fixed, most
   recently 2026-09-01T18:25:02Z.
-- **`ci`**: 16/33 green, most recently 2026-09-01T19:02:46Z. The 17 failures are the CI-vs-local
-  dependency divergence in §10.1 — resolved, and every run since has been green.
-- **`feature-pipeline`**: **0/5 green.** All five runs (2026-08-31T21:30Z → 2026-09-01T16:45Z)
-  failed at the fetch/build step: it requested a future `end_date` from the ERA5 archive endpoint,
-  which is actuals-only and rejects any date past today. Root-caused from the real failure logs and
-  fixed same day; the fix is pushed (commit `83a738a`) but had not yet run live as of this report.
-- **`alerts`**: **0/2 green**, both on 2026-09-01. Both failed on `ModuleNotFoundError: joblib` — the
-  workflow never installed the extra that provides it. Same fix commit, same not-yet-live-confirmed
-  status.
+- **`ci`**: 19/37 green, most recently 2026-09-01T20:28:09Z. The bulk of the failures are the
+  CI-vs-local dependency divergence in §10.1 — resolved, and every run since has been green.
+- **`feature-pipeline`**: **1/9 green.** The first eight runs failed — five (2026-08-31T21:30Z →
+  2026-09-01T16:45Z) at the fetch/build step, requesting a future `end_date` from the ERA5 archive
+  endpoint (actuals-only, rejects any date past today); two more, after that fix landed, at the
+  commit step (`git add data/feature_store` — silently gitignored by an unrelated commit, never
+  properly re-allowlisted, traced via `git log -p .gitignore`, not guessed). Run **#8, 2026-09-01T20:30:14Z, against commit `99e5864`, is a confirmed green run** — read directly from
+  the Actions API, not inferred from the fix landing. This is D1's stated evidence
+  (`docs/DELIVERABLES.md` D1).
+- **`alerts`**: **2/4 green**, most recently 2026-09-01T21:16:20Z. The first two failed on
+  `ModuleNotFoundError: joblib` (the workflow never installed the extra that provides it); both runs
+  since the fix landed have been green.
 
 **The brief asks for an hourly feature script and a daily training script.** The hourly half runs
 (when its own bugs aren't blocking it, as above). **The daily training workflow was not built before

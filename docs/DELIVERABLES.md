@@ -23,7 +23,7 @@ README is the thirty-second pitch. Three documents, three readers.
 
 ## The feature pipeline
 
-### D1 — Fetch raw weather and pollutant data from an external API 🟡
+### D1 — Fetch raw weather and pollutant data from an external API ✅
 
 **Brief:** *"Write a Python script that fetches raw weather and pollutant data from an external API
 like AQICN or OpenWeather."*
@@ -31,8 +31,8 @@ like AQICN or OpenWeather."*
 | | |
 |---|---|
 | Lives in | `src/aqi/sources/`, `src/aqi/pipelines/feature_pipeline.py`, `.github/workflows/feature-pipeline.yml` |
-| Evidence | `pytest tests/test_open_meteo_sources.py tests/test_aqicn_station.py tests/test_feature_pipeline.py` · captured contracts in `docs/schemas/` · `python -m aqi.pipelines.feature_pipeline` upserts both zones live (verified this session against the real Open-Meteo APIs) |
-| Outstanding | The workflow is written and YAML-validated but has not yet had a confirmed green run in the Actions tab — needs this session's commit pushed and either the first scheduled run or a manual `workflow_dispatch` to close the loop, same gate `clock-starter` cleared in session 0 |
+| Evidence | `pytest tests/test_open_meteo_sources.py tests/test_aqicn_station.py tests/test_feature_pipeline.py` · captured contracts in `docs/schemas/` · **confirmed green hourly run, read from the GitHub Actions API, not inferred:** run #8, 2026-09-01T20:30:14Z, commit `99e5864`, `feature-pipeline.yml` — the first of two prior fix cycles that day (ERA5 future-date 400, then a gitignore rule silently dropped by an unrelated commit) |
+| Outstanding | The first 8 runs were red — 5 at fetch/build (ERA5 archive rejected a future `end_date`), then 2 more at the commit step (`data/feature_store` unintentionally re-gitignored). Both root-caused from real logs, not guessed; §7 of `reports/final_report.md` has the full history. D8's ≥7-consecutive-green-days bar is not yet met — this is one confirmed green run, not a streak |
 
 **Done distinctively:** four sources rather than one, including the Open-Meteo **historical-forecast
 archive** — the source that makes leakage-safe future covariates possible at all (CLAUDE.md I1).
