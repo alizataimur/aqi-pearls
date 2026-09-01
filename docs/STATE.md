@@ -76,6 +76,48 @@ rewrite `tests/test_deploy_assets.py` to check the live store instead of
 
 ---
 
+## Post-session-6 finding — Telegram is blocked in Pakistan; D14 ships on email
+
+**Provenance:** from the user, not from testing — recorded that way in
+`docs/DECISIONS.md` ADR-032, not silently absorbed as if it were discovered
+here. Pakistan's PTA intermittently blocks Telegram; a citizen-facing
+hazard alert built only on it cannot reach the people this product is for.
+A product finding, not a bug.
+
+**What changed:** `alerts/notifier.py`'s new `Notifier` Protocol makes the
+existing channel-agnostic-in-substance rule (`alerts/rules.py::evaluate`,
+`format_message` — byte-for-byte untouched, same tests still pass unchanged)
+structurally channel-agnostic too. `alerts/email_sender.py::EmailNotifier`
+(stdlib `smtplib`/`email.message`, no new dependency) is now the default
+channel; `alerts/telegram.py::TelegramNotifier` stays fully supported via
+`ALERT_CHANNEL=telegram` — not deleted, still the right choice for anyone
+outside Pakistan's block, e.g. the maintainer's own monitoring.
+
+**The trigger, read from the code and stated exactly (not assumed):**
+`evaluate()` fires on the **D+1 point forecast crossing 200**
+(`horizon.predicted_aqi > 200`, LightGBM's plain number) — not
+`P(AQI>200) > 0.6`. Unchanged by this session; documented as an honest
+substitute back in session 6 (ADR-026), since the probability head that
+rule needs is cut (ADR-021). The message templates already said "forecast
+daily max AQI of {aqi}," never "chance"/"probability" — checked directly
+against CLAUDE.md §20's "letting the model state numbers" anti-pattern, and
+were already compliant.
+
+`.github/workflows/alerts.yml` (new — D14 previously had no scheduled
+workflow at all) runs 6-hourly, reads `ALERT_CHANNEL` and both credential
+sets from GitHub Secrets, and commits `data/alerts_state.json` after every
+run (now `!`-excepted in `.gitignore`) — without that commit, Actions'
+ephemeral runners would reset the episode-dedup state to empty every run
+and re-fire on every still-hazardous 6-hour tick instead of staying silent.
+
+**Needs Aliza:** a Gmail App Password (<https://myaccount.google.com/apppasswords>)
+and the four `ALERT_EMAIL_*` values, in `.env` locally and as GitHub Secrets
+for `alerts.yml`. No live email has been sent from this session (mocked SMTP
+only in tests) — D14 stays 🟡 for that reason, same class of gap as
+Telegram's un-exercised send path before it.
+
+---
+
 ## Session 6 — Serving, dashboard, explanations, alerts — CLOSED
 (D9 🟡, D10 🟡, D13 ✅, D14 🟡)
 
@@ -115,9 +157,10 @@ reading code.
 - **D9/D10 stay 🟡** — both run correctly locally (evidenced by passing tests against real data) but
   aren't deployed to a public URL. **Needs Aliza:** Streamlit Community Cloud + an HF Space
   (`docs/RUNBOOK.md` §5, assigned to session 10 — this session did the code, not the deploy).
-- **D14 stays 🟡** — code and tests are real and green, but no live Telegram message has been sent.
-  **Needs Aliza:** `/newbot` with @BotFather, then supply `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` and
-  re-run `python -m aqi.alerts.telegram`.
+- **D14 stays 🟡** — Telegram is blocked in Pakistan by the PTA (ADR-032); email is now the default
+  channel, code and tests are real and green, but no live email has been sent. **Needs Aliza:** a
+  Gmail App Password + the four `ALERT_EMAIL_*` values, then re-run
+  `python -m aqi.alerts.email_sender`. See "Post-session-6 finding" above.
 - **SARIMAX still can't serve a genuine live forecast** — `get_forecast(steps=h, exog=...)` is the
   correct fix (ADR-025) and is a clean, scoped piece of future work, not attempted this session.
 - **`conf/i18n_ur.yaml` needs a native-speaker review pass** (ADR-029) — ~16 strings, health guidance
@@ -538,11 +581,15 @@ Still needs Aliza:
 - Create the Hopsworks project + put `HOPSWORKS_API_KEY`/`HOPSWORKS_PROJECT`
   in `.env` and GitHub Secrets (RUNBOOK §5) — `HopsworksFeatureStore` is
   written and ready, just never exercised against a live account.
-- **New this session:** `/newbot` with @BotFather, then put
-  `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` in `.env` and GitHub Secrets
-  (RUNBOOK §5) — `alerts/telegram.py` is written and tested against a mock,
-  just never exercised against a real chat. Re-run
-  `python -m aqi.alerts.telegram` once set to send the real test message.
+- **Superseded this session (ADR-032):** Telegram is blocked in Pakistan by the
+  PTA, so it's no longer the default D14 channel — `/newbot` is optional now
+  (only needed for `ALERT_CHANNEL=telegram` monitoring from outside Pakistan).
+  **New need instead:** a Gmail App Password
+  (<https://myaccount.google.com/apppasswords>) and the four `ALERT_EMAIL_*`
+  values, in `.env` and GitHub Secrets (RUNBOOK §5) — `alerts/email_sender.py`
+  is written and tested against a mocked SMTP call, never exercised against a
+  real inbox. Re-run `python -m aqi.alerts.email_sender` once set to send the
+  real test message.
 - **Streamlit Community Cloud app: done** —
   <https://aqi-pearls-predictor.streamlit.app/> is live, confirmed on the
   live model path (ADR-031). D9 is ✅. **Still needed:** the HF Space for the

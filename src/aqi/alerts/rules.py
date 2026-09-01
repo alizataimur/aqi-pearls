@@ -15,6 +15,13 @@ tracks whether each zone is currently "in an episode." A message fires only
 on the transition into hazard (`episode`) or back out of it (`all_clear`) —
 CLAUDE.md's "deduplicate within an episode... send an all-clear," read
 literally as a state machine rather than a fixed time window.
+
+`evaluate()` and `format_message()` below are the whole rule: what triggers
+an alert and what it says. Neither knows or cares how the message is
+delivered — `run_alerts()` picks a `Notifier` (`alerts/notifier.py`) by
+`ALERT_CHANNEL`, and the channel refactor (ADR-032: Telegram is blocked in
+Pakistan by the PTA, so email is now default) touched only that dispatch
+code, not this rule.
 """
 
 from __future__ import annotations
@@ -24,7 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from aqi.config import REPO_ROOT, ZoneConfig
+from aqi.alerts.notifier import Notifier, NotifierNotConfiguredError
+from aqi.config import REPO_ROOT, ZoneConfig, get_secrets
 from aqi.explain.i18n import alert_template, health_guidance
 from aqi.serving.inference import HorizonForecast, forecast_zone, load_frame_cached, zones
 
@@ -111,14 +119,33 @@ def format_message(zone: ZoneConfig, decision: AlertDecision) -> str:
     return f"{line_en}\n\n{line_ur}"
 
 
-def run_alerts(
-    zone_ids: set[str] | None = None, *, dry_run: bool = False
-) -> list[AlertDecision]:
-    """Evaluate every zone's D+1 forecast and send Telegram messages for any
-    state transition. `dry_run=True` evaluates and prints without sending —
-    used by CI and by anyone without Telegram credentials yet."""
-    from aqi.alerts.telegram import TelegramNotConfiguredError, send_message
+def _build_notifier(channel: str | None = None) -> Notifier:
+    """`ALERT_CHANNEL` picks the transport (email default, telegram
+    supported — ADR-032); the rule logic above never sees this choice.
+    Imports are local to avoid `smtplib`/`requests` import cost for callers
+    (e.g. `evaluate`/`format_message` unit tests) that never send anything."""
+    from aqi.alerts.email_sender import EmailNotifier
+    from aqi.alerts.telegram import TelegramNotifier
 
+    chosen = channel or get_secrets().alert_channel
+    if chosen == "email":
+        return EmailNotifier()
+    if chosen == "telegram":
+        return TelegramNotifier()
+    raise ValueError(f"unknown ALERT_CHANNEL {chosen!r} — expected 'email' or 'telegram'")
+
+
+def run_alerts(
+    zone_ids: set[str] | None = None,
+    *,
+    dry_run: bool = False,
+    channel: str | None = None,
+) -> list[AlertDecision]:
+    """Evaluate every zone's D+1 forecast and send a message on any state
+    transition, via whichever `Notifier` `ALERT_CHANNEL` (or `channel`)
+    selects. `dry_run=True` evaluates and prints without sending — used by
+    CI and by anyone without the selected channel's credentials yet."""
+    notifier = _build_notifier(channel)
     frame = load_frame_cached()
     state = _load_state()
     decisions = []
@@ -138,9 +165,10 @@ def run_alerts(
             print(f"[alerts] (dry run) {zone.zone_id}: {decision.kind}\n{message}")
             continue
         try:
-            send_message(message)
-            print(f"[alerts] sent {zone.zone_id}: {decision.kind}")
-        except TelegramNotConfiguredError as exc:
+            notifier.send(message)
+            channel_name = type(notifier).__name__
+            print(f"[alerts] sent via {channel_name} {zone.zone_id}: {decision.kind}")
+        except NotifierNotConfiguredError as exc:
             print(f"[alerts] not configured, not sent — {exc}\n{message}")
 
     _save_state(state)

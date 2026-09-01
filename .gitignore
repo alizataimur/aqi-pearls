@@ -31,6 +31,12 @@ data/*
 # pipeline if it's ever lost, just not for free).
 !data/backfill_manifest.jsonl
 
+# D14: alerts.yml commits the episode-dedup state after every run — Actions
+# runners are ephemeral, so without this the dedup state resets to empty on
+# every scheduled run and every still-hazardous day re-fires as a "new"
+# episode instead of staying silent (alerts/rules.py's whole point).
+!data/alerts_state.json
+
 # ADR-030: serving artefacts are committed as a deadline expedient, because D3
 # (Hopsworks Model Registry) is not green. A fresh checkout (Streamlit Cloud)
 # has no other way to obtain them. tests/test_deploy_assets.py fails loudly if

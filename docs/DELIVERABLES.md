@@ -301,15 +301,21 @@ native-speaker review pass yet — flagged in the file itself, in `docs/DECISION
 
 | | |
 |---|---|
-| Lives in | `src/aqi/alerts/rules.py`, `src/aqi/alerts/telegram.py` |
-| Evidence | `pytest tests/test_alerts.py` — 12 tests, the episode/all-clear state machine and the Telegram send path (mocked HTTP) both exercised |
-| Outstanding | `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are both empty — same credential-gap pattern as Hopsworks (`docs/STATE.md`). No live message has been sent. **Needs Aliza:** `/newbot` with @BotFather (`docs/RUNBOOK.md` §5), then `python -m aqi.alerts.telegram` sends the real test message with the exact code path the tests already cover |
+| Lives in | `src/aqi/alerts/{rules,notifier,email_sender,telegram}.py`, `.github/workflows/alerts.yml` |
+| Evidence | `pytest tests/test_alerts.py` — 20 tests: the episode/all-clear state machine, both `Notifier` send paths (mocked SMTP/HTTP), and `ALERT_CHANNEL` selection. **To send one real live alert to yourself:** set `ALERT_EMAIL_HOST=smtp.gmail.com`, `ALERT_EMAIL_PORT=587`, `ALERT_EMAIL_USER`/`ALERT_EMAIL_PASSWORD` (a Gmail App Password) and `ALERT_EMAIL_TO` in `.env`, then run `python -m aqi.alerts.email_sender` |
+| Outstanding | No live email has been sent from this session (no real Gmail App Password available here) — the send path is exercised only against a mocked `smtplib.SMTP`. **Needs Aliza:** an App Password (<https://myaccount.google.com/apppasswords>) and the four `ALERT_EMAIL_*` values, locally in `.env` and as GitHub Secrets for `alerts.yml`. Telegram stays supported (`ALERT_CHANNEL=telegram`) but is not the default — see below |
 
-**Done distinctively:** triggered on the D+1 point forecast crossing 200 rather than
-`P(AQI>200) > 0.6` — CLAUDE.md's real rule needs a probability head that's cut this session
-(ADR-026), and this is documented as an honest substitute, not silently relabelled. Deduplication is
-a real state machine (`data/alerts_state.json`), firing only on the transition into a hazard episode
-or back out of it (an all-clear), not a fixed time window.
+**Done distinctively:** email ships as the default channel because **Telegram is blocked in Pakistan
+by the PTA** — a product finding from the user, not from testing, recorded as such
+(`docs/DECISIONS.md` ADR-032). The alert *rule* is now structurally channel-agnostic, not just
+incidentally so: a `Notifier` Protocol (`alerts/notifier.py`) separates "what triggers an alert and
+what it says" (`evaluate()`, `format_message()` — untouched by this refactor) from "how it's
+delivered" (`EmailNotifier`/`TelegramNotifier`, selected by `ALERT_CHANNEL`). Triggered on the D+1
+point forecast crossing 200, not `P(AQI>200) > 0.6` — CLAUDE.md's real rule needs a probability head
+that's cut this session (ADR-026) — and the message says "forecast daily max AQI of {aqi}," never
+"chance" or "probability" (checked directly against CLAUDE.md §20's anti-pattern). Deduplication is a
+real state machine (`data/alerts_state.json`, committed after every `alerts.yml` run so it survives
+Actions' ephemeral runners), firing only on the transition into a hazard episode or back out of it.
 
 ---
 

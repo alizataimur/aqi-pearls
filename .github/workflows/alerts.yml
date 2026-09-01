@@ -1,0 +1,142 @@
+# D14's 6-hourly workflow (CLAUDE.md §13). Evaluates the episode/all-clear
+# rule for both zones and sends via whichever channel ALERT_CHANNEL selects
+# — email by default (ADR-032: Telegram is blocked in Pakistan by the PTA,
+# the market this product is for; Telegram stays supported for anyone
+# outside that block, e.g. the maintainer's own monitoring).
+#
+# NOTE: this workflow's own "the run itself failed" notification (the
+# "Report failure" step below) intentionally stays on Telegram+issue,
+# matching every other workflow's ops-failure convention (CLAUDE.md §13) —
+# that's a maintainer-facing infra signal, a different audience from D14's
+# citizen-facing hazard alert, and the PTA block is specific to the
+# citizen-facing product, not to Aliza's own tooling.
+#
+# data/alerts_state.json (the episode dedup state) is committed after every
+# run, the same way data/feature_store/ is (feature-pipeline.yml) — Actions
+# runners are ephemeral, so without this the dedup state would reset to
+# empty every run and every still-hazardous day would re-fire as a "new"
+# episode instead of staying silent.
+
+name: alerts
+
+on:
+  schedule:
+    - cron: "37 */6 * * *"    # 6-hourly; :37 to avoid other workflows' minutes
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: alerts
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Evaluate alert rules and send
+        env:
+          FEATURE_STORE_BACKEND: ${{ secrets.FEATURE_STORE_BACKEND || 'parquet' }}
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
+          ALERT_CHANNEL: ${{ secrets.ALERT_CHANNEL || 'email' }}
+          ALERT_EMAIL_HOST: ${{ secrets.ALERT_EMAIL_HOST }}
+          ALERT_EMAIL_PORT: ${{ secrets.ALERT_EMAIL_PORT }}
+          ALERT_EMAIL_USER: ${{ secrets.ALERT_EMAIL_USER }}
+          ALERT_EMAIL_PASSWORD: ${{ secrets.ALERT_EMAIL_PASSWORD }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m aqi.alerts.rules
+
+      - name: Commit the dedup state
+        run: |
+          git config user.name  "alerts[bot]"
+          git config user.email "alerts@users.noreply.github.com"
+          git add data/alerts_state.json
+          if git diff --staged --quiet; then
+            echo "nothing new to commit"
+            exit 0
+          fi
+          git commit -m "chore(alerts): dedup state $(date -u +'%Y-%m-%dT%H:%MZ')"
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && \
+            git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            echo "push attempt ${attempt} failed, retrying"
+            sleep 5
+          done
+          exit 1
+
+      - name: Report failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "${TELEGRAM_BOT_TOKEN}" ]; then
+            curl -sS -X POST \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d chat_id="${TELEGRAM_CHAT_ID}" \
+              -d text="alerts FAILED: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+              > /dev/null || true
+          fi
+
+      - name: Open or update a tracking issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "alerts is failing";
+            const body = `The 6-hourly alerts workflow failed: ` +
+              `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n` +
+              `D14's citizen-facing hazard alerts may be silently missing until closed (CLAUDE.md §13).`;
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", labels: ["pipeline-failure", "alerts"],
+            });
+            if (existing.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ["pipeline-failure", "alerts"],
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing[0].number, body,
+              });
+            }
+
+      - name: Close the tracking issue on recovery
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", labels: ["pipeline-failure", "alerts"],
+            });
+            for (const issue of existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Recovered: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number, state: "closed",
+              });
+            }

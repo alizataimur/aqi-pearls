@@ -171,6 +171,17 @@ class Secrets(BaseSettings):
     llm_api_key: str = ""
     llm_provider: str = "groq"
 
+    # D14 alerts (CLAUDE.md §14). Email is the default channel — Telegram is
+    # blocked in Pakistan by the PTA, the market this product is for
+    # (docs/DECISIONS.md ADR-032). Telegram stays supported, e.g. for the
+    # maintainer's own monitoring from outside Pakistan.
+    alert_channel: Literal["email", "telegram"] = "email"
+    alert_email_host: str = ""
+    alert_email_port: int = 587
+    alert_email_user: str = ""
+    alert_email_password: str = ""
+    alert_email_to: str = ""
+
 
 @lru_cache(maxsize=1)
 def get_config() -> AppConfig:

@@ -967,3 +967,77 @@ proved insufficient on their own. Any future `LocalModelRegistry` consumer
 (the FastAPI service, once D10 needs it live — see D10's row in
 `docs/DELIVERABLES.md`) must go through `resolve_artifact_path`, never read
 `metadata["artifact_path"]` directly.
+
+---
+
+## ADR-032 — Alert channel: Telegram is blocked in Pakistan; email ships as default
+
+**Status:** accepted · 2026-09-01
+
+**Provenance, stated plainly:** this finding came from the user, not from
+testing. Nothing in this repo's test suite or CI could have caught it — it
+is a fact about Pakistan's telecom regulator (PTA), not about this code.
+Recorded here exactly as it arrived: *"Telegram is blocked in Pakistan by
+PTA, so an alert channel built on it cannot reach the citizens this product
+is for. This is a product finding, not a bug."*
+
+D14's original implementation (session 6) shipped Telegram as the only
+channel — a reasonable choice at the time (CLAUDE.md §14 names it
+explicitly, it needs only a bot token, and ADR-018 already chose it over
+WhatsApp for setup-cost reasons). Pakistan's PTA has intermittently blocked
+Telegram since 2024 in that market; a citizen-facing hazard alert on a
+channel the target audience frequently cannot reach fails the product's
+actual job, independent of whether the code sending it is correct.
+
+**Chosen:** two changes.
+
+1. **Structural, not just a channel swap:** introduced `alerts/notifier.py`'s
+   `Notifier` Protocol (one method, `send(text: str) -> None`) and a shared
+   `NotifierNotConfiguredError` base. `alerts/rules.py`'s `evaluate()` and
+   `format_message()` — the actual rule: what triggers an alert and what it
+   says — are completely untouched; only `run_alerts()`'s dispatch changed,
+   selecting a `Notifier` via `ALERT_CHANNEL` instead of importing
+   `telegram.send_message` directly. The rule was already channel-agnostic
+   in substance (nothing in it mentioned Telegram); this makes that
+   structurally true, not just true by accident.
+2. **Email ships as the new default**
+   (`alerts/email_sender.py::EmailNotifier`), stdlib-only (`smtplib`,
+   `email.message`, no new dependency), config from env only (I9):
+   `ALERT_EMAIL_HOST/PORT/USER/PASSWORD/TO`. Gmail's SMTP (`smtp.gmail.com:
+   587`, STARTTLS) is the documented reference config in `.env.example`;
+   any SMTP provider works the same way. `ALERT_EMAIL_PASSWORD` is read from
+   `Secrets` and handed straight to `smtplib.SMTP.login` — no `print` or log
+   statement anywhere in the module references it (I9).
+
+**Telegram is not deleted.** `alerts/telegram.py::TelegramNotifier` is
+untouched in behavior (only refactored to implement `Notifier`) and stays
+fully supported via `ALERT_CHANNEL=telegram` — useful for anyone outside
+Pakistan's block, e.g. the maintainer's own operational monitoring, which
+is a different audience from D14's citizen-facing hazard alert.
+
+**On the trigger, exactly** (asked for explicitly): the rule fires on the
+**D+1 point forecast crossing 200** (`alerts/rules.py::evaluate`,
+`horizon.predicted_aqi > HAZARD_THRESHOLD`) — a plain LightGBM forecast
+number, not a probability. This was already true before this session
+(session 6, ADR-026) and is untouched by this refactor. The message
+templates (`conf/i18n_ur.yaml`) already say "forecast daily max AQI of
+{aqi}," never "chance" or "probability" — checked directly against
+CLAUDE.md §20's "letting the model state numbers" anti-pattern, and they
+were already compliant; no wording change was needed here. CLAUDE.md §14's
+real rule (`P(AQI>200) > 0.6`) still needs the probability head that's cut
+this session (ADR-021, ADR-026) — unchanged, and not addressed by this ADR.
+
+**Rejected:** WhatsApp (ADR-018 already covered this — Business API
+verification is too slow for this deadline) and building a
+provider-specific SMS gateway (a real dependency, real cost, and no
+evidence yet that SMS reaches this audience better than email — worth
+revisiting with real user contact, per CLAUDE.md §18's "on users, be
+exact").
+
+**Consequence:** `docs/DELIVERABLES.md` D14's evidence command changes to
+the email path; `.github/workflows/alerts.yml` (new this session) reads
+`ALERT_CHANNEL` and both credential sets from GitHub Secrets, defaulting to
+email. `tests/test_alerts.py` gained coverage for `EmailNotifier`, the
+`Notifier`-subclass relationship of both `*NotConfiguredError` types, and
+`_build_notifier`'s channel selection — `evaluate()`/`format_message()`'s
+existing tests are unchanged, proving the rule really wasn't touched.
