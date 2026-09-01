@@ -1041,3 +1041,71 @@ email. `tests/test_alerts.py` gained coverage for `EmailNotifier`, the
 `Notifier`-subclass relationship of both `*NotConfiguredError` types, and
 `_build_notifier`'s channel selection — `evaluate()`/`format_message()`'s
 existing tests are unchanged, proving the rule really wasn't touched.
+
+---
+
+## ADR-033 — ADR-031's fix was OS-native; the deployed banner needed a data migration, not just a code fix
+
+**Status:** accepted · 2026-09-01 (session 6, third post-deploy incident)
+
+ADR-031 fixed `resolve_artifact_path()` to stop trusting
+`metadata["artifact_path"]` as a literal path. The deployed app kept
+showing the "live model unavailable" banner anyway. Root cause, found by
+the user reading `data/model_registry/lightgbm__h24/metadata.json` directly
+rather than trusting the previous fix: two separate problems, not one.
+
+1. **The writer fix does not migrate old data.** `register()` was changed
+   to write filename-only paths going forward; the 24 `metadata.json` files
+   already committed were written by the *old* code and still held a full
+   absolute Windows path (`C:\Users\xesha\Documents\aqi-pearls\data\...`).
+   Fixing a writer never rewrites what it already wrote.
+2. **The reader fix was itself OS-native.** ADR-031's
+   `resolve_artifact_path()` used `Path(stored).name` — on this Windows dev
+   machine, `Path` is `WindowsPath`, which correctly treats `\` as a
+   separator, so testing "against a fresh clone" *on this same machine*
+   (ADR-031's own reproduction) could never have caught this: it exercised
+   Windows semantics throughout. Streamlit Cloud runs Linux; `pathlib.
+   PosixPath("C:\\Users\\...\\model.joblib").name` returns the **entire
+   string unchanged**, because backslash is not a separator to `PosixPath`.
+   `resolve_artifact_path()` then tried to open a file literally named
+   `C:\Users\xesha\...\model.joblib` inside the entry directory, which of
+   course doesn't exist.
+
+**Chosen:**
+1. **Migrated the data.** A one-off pass over every committed
+   `data/model_registry/*/metadata.json` (all 24, not just the three
+   `lightgbm` entries the serving path reads — no reason to leave the other
+   21 dishonest once the bug class was understood), extracting the
+   filename with the same `PureWindowsPath(...).name` logic the reader now
+   uses and rewriting `artifact_path` to that bare filename. One field
+   changed per file; nothing else in any `metadata.json` touched.
+2. **Fixed the reader properly.** `resolve_artifact_path()` now parses with
+   `pathlib.PureWindowsPath` explicitly, not the ambient `Path`.
+   `PureWindowsPath` is a *pure* path class — it manipulates strings
+   according to Windows syntax rules unconditionally, regardless of which
+   OS is actually running the code, so `.name` extraction is now identical
+   on Windows, Linux and macOS. For the new, already-portable
+   filename-only format this is a no-op (no separators to get confused
+   about either way); it only matters for legacy or future-regression data,
+   and now it matters correctly everywhere at once.
+
+**Rejected:** relying on the data migration alone, without also fixing
+`resolve_artifact_path()`'s parsing. Would have closed today's incident but
+left the exact same OS-dependent bug ready to recur the moment any
+future `metadata.json` — hand-edited, written by a different tool, or by a
+training-pipeline run on some other machine — ever holds a backslash path
+again. Fixing the parser is what makes this a closed class of bug, not a
+one-time patch.
+
+**Consequence:** two new regression tests, deliberately at different
+layers, because this incident was two different failures stacked:
+`tests/test_registry.py::TestResolveArtifactPath` proves the *function* is
+now OS-independent (a hand-written legacy-format `metadata.json` resolves
+correctly regardless of the host OS, verified using `PureWindowsPath`
+semantics that don't depend on where the test happens to run);
+`tests/test_deploy_assets.py::TestCommittedArtifactPathsAreClean` proves the
+*committed data* itself can never carry a drive letter, backslash, or
+leading slash again — reading every tracked `metadata.json` directly, not
+exercising the resolver at all. Testing only the writer (ADR-031's original
+`TestArtifactPathIsPortable`) missed this; testing only the resolver would
+still have missed the OS-dependence. Both are needed, and now both exist.

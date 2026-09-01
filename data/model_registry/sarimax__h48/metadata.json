@@ -33,5 +33,5 @@
   },
   "champion": true,
   "registered_at": "2026-09-01T04:28:15.646035+00:00",
-  "artifact_path": "C:\\Users\\xesha\\Documents\\aqi-pearls\\data\\model_registry\\sarimax__h48\\model.joblib"
+  "artifact_path": "model.joblib"
 }

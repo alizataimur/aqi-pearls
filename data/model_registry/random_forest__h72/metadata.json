@@ -247,5 +247,5 @@
   },
   "champion": false,
   "registered_at": "2026-09-01T04:31:45.955595+00:00",
-  "artifact_path": "C:\\Users\\xesha\\Documents\\aqi-pearls\\data\\model_registry\\random_forest__h72\\model.joblib"
+  "artifact_path": "model.joblib"
 }

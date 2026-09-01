@@ -31,5 +31,5 @@
   },
   "champion": false,
   "registered_at": "2026-09-01T04:31:45.841428+00:00",
-  "artifact_path": "C:\\Users\\xesha\\Documents\\aqi-pearls\\data\\model_registry\\climatology__h72\\model.joblib"
+  "artifact_path": "model.joblib"
 }

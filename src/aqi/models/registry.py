@@ -27,7 +27,7 @@ import json
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[3] / "data" / "model_registry"
@@ -132,15 +132,26 @@ class LocalModelRegistry:
         """The artifact's real path on *this* checkout — never trusts
         `metadata["artifact_path"]` as a literal path (ADR-031): only its
         filename is used, joined onto this registry's own, portable
-        `entry_dir`. Works for both the old (pre-fix) committed metadata,
-        which stored a full machine-specific absolute path, and the new
-        filename-only format `register()` writes now — `Path(...).name`
-        extracts the filename either way."""
+        `entry_dir`. Works for both the new filename-only format
+        `register()` writes now and any legacy absolute Windows path a
+        pre-fix `metadata.json` might still hold (session-6, second
+        incident, ADR-033: the first fix used `Path(stored).name`, which is
+        OS-native — `WindowsPath` on the machine that ran the training
+        pipeline, but `PosixPath` on Streamlit Cloud's Linux container,
+        where a bare `str.split` on backslashes never happens and `.name`
+        returns the *entire* stored string unchanged).
+
+        `PureWindowsPath` is used explicitly — not the ambient, OS-native
+        `Path` — because it parses backslash-separated, drive-lettered
+        paths correctly regardless of what OS is actually running this
+        code. A bare filename like `"model.joblib"` has no separators
+        either way, so this is a no-op for the new, already-portable
+        format; it only matters for the legacy data, on every OS at once."""
         metadata = self.load_metadata(model_name, horizon_hours)
         stored = metadata.get("artifact_path")
         if stored is None:
             return None
-        return self._entry_dir(model_name, horizon_hours) / Path(stored).name
+        return self._entry_dir(model_name, horizon_hours) / PureWindowsPath(stored).name
 
     def promote_champion(
         self,
