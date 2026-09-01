@@ -26,7 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +35,7 @@ LEDGER = REPO_ROOT / "data" / "ledger"
 QUARANTINE = LEDGER / "_quarantine"
 
 # Last-resort only, for rows with no station name and no payload hash.
-CUTOFF = datetime(2026, 8, 31, 14, 40, tzinfo=timezone.utc)
+CUTOFF = datetime(2026, 8, 31, 14, 40, tzinfo=UTC)
 
 # Cities the clock starter must never write, having no pinned station.
 UNPINNED = {"rawalpindi"}
@@ -174,7 +174,7 @@ def do_quarantine(apply: bool) -> tuple[int, int]:
                 handle.write(
                     json.dumps(
                         {
-                            "quarantined_at_utc": datetime.now(timezone.utc).isoformat(),
+                            "quarantined_at_utc": datetime.now(UTC).isoformat(),
                             "reason": reason,
                             "original_row": row,
                         },

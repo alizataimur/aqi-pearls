@@ -3,9 +3,67 @@
 > Read CLAUDE.md first for rules and contracts. This file is *position only*.
 > Update it at the end of every session (CLAUDE.md §19).
 
-**Stage:** 2 — Make the data real, in progress / Session 3 (store + backfill) — CLOSED
-**Updated:** 2026-08-31
+**Stage:** 2 — Make the data real, in progress / Session 4 (EDA + physics validation +
+divergence) — PARTIAL, cut short under a hard deadline
+**Updated:** 2026-09-01
 **Repo status:** public, pushed — https://github.com/alizataimur/aqi-pearls
+**Held-out test window (I2):** the **2025-26 smog season** (Oct 2025 – Feb 2026) — see ADR-016. It
+is the most recent complete season with both `boundary_layer_height` series (observed and
+historical-forecast) fully populated; earlier seasons either predate the forecast-BLH archive's
+coverage here or fall inside the observed-BLH gap (ADR-015). Session 5's `evaluation/splits.py`
+walk-forward folds must end with this season as the final test chunk.
+
+---
+
+## Session 4 — EDA + physics validation + divergence — PARTIAL (D11 🟡)
+
+Goal (`docs/RUNBOOK.md` §2.1): `01_eda.ipynb`, `02_divergence.ipynb`,
+`03_physics_features.ipynb`, plus fixing `reports/metrics/coverage.json` to
+report data presence (per-column nulls) rather than just row presence.
+**Cut short mid-session under a hard deadline** — instructed to finish
+`01_eda.ipynb` only, update docs, commit, and stop. `02_divergence.ipynb` and
+`03_physics_features.ipynb` were not started as notebooks (their supporting
+machinery — the ledger reader, the null-rate coverage report — was built
+first and is done; see below).
+
+**Entering this session, already done and committed** (session 4's earlier
+work, prior to this cutoff): ADR-015 (explicit `min_periods=window` on every
+rolling stat; `boundary_layer_height_is_missing` / `stagnation_index_is_missing`
+/ `ventilation_index_is_missing` flags) and ADR-016 (2025-26 smog season as
+the held-out test window — now also called out at the top of this file, not
+just in `docs/DECISIONS.md`, since session 5 needs it and shouldn't have to
+re-derive it from the raw BLH gap data). Not redone this session, per the
+session brief.
+
+| Item | Status | Notes |
+|---|---|---|
+| `reports/metrics/coverage.json` | done | Now reports **per-column null rates per zone** (nonzero only), not just row presence. Regenerated live: `boundary_layer_height` shows 12.24% null both zones (the ADR-015 gap, now visible in the artifact that's supposed to describe it), `fc_boundary_layer_height_h24` ~51% null (the forecast-archive gap, present before late Aug 2024). Opt-in via a new `store` parameter on `build_coverage_report` so the existing manifest-only unit test stays offline; `main()` always passes `get_store()` in production |
+| `src/aqi/store/ledger.py` | done, new | `read_ledger(kind, root)` and `ledger_window(kind, root)` — reads `observed`/`aqicn` JSONL, always excludes `_quarantine/`. Read-only; never writes (I3). `tests/test_ledger.py`, 6 tests |
+| `notebooks/01_eda.ipynb` | done | Full backfill window (2022-08 to 2026-09), both zones. Four sections, each with a chart + a markdown finding grounded in numbers the notebook itself computes and prints: monthly climatology (smog-season asymmetry between zones), diurnal profile (a genuine capital-vs-Lahore winter shape difference, flagged as a hypothesis), STL decomposition (residual variance measurably higher in smog season — printed, not just eyeballed), and a full correlation ranking (separates PM10/combustion collinearity from the weaker dispersion signal). Executed end-to-end with `nbclient` before output-clearing (no errors). Cell outputs cleared before commit (CLAUDE.md §16); figures are the durable evidence, saved to `reports/figures/eda_monthly_climatology.png`, `eda_diurnal_profile.png`, `eda_stl_decomposition.png`, `eda_correlation_heatmap.png` |
+| `notebooks/02_divergence.ipynb` | **not started** | Cut for time. The ledger currently holds **6 rows** (observed: islamabad×2, lahore×2; aqicn: islamabad×1, lahore×1 — confirmed via `read_ledger`), spanning 2026-08-31 only. `ledger.py` and the null-rate-aware coverage report are the machinery this notebook needs; writing it is a re-run away, not a re-design |
+| `notebooks/03_physics_features.ipynb` | **not started** | Cut for time. The question it must answer — does `inversion_proxy` alone carry the dispersion signal `stagnation_index`/`ventilation_index` were meant to add, given the BLH gaps — is unanswered. `01_eda.ipynb`'s correlation section found `inversion_proxy` positively correlated with PM2.5 even unconditionally (r=0.25 capital, r=0.50 Lahore) — a head start, not a substitute for the real spike-conditioned validation |
+| `docs/DELIVERABLES.md` | done | D11 row: ⬜ → 🟡, evidence updated to point at the real notebook + figures, outstanding items named |
+
+**A genuine finding worth carrying into the report regardless of which session writes it up:**
+`01_eda.ipynb`'s STL decomposition shows residual (unexplained-by-season) variance is **~30% higher
+in smog season for the capital and more than double for Lahore**, computed directly from the
+decomposition, not eyeballed from a chart. That is direct evidence the hardest-to-predict days
+cluster in exactly the season the episode metrics (§12.4) and the held-out test window (I2, ADR-016)
+are scored on.
+
+### What's still outstanding after this session
+
+- **`02_divergence.ipynb` and `03_physics_features.ipynb` are the first job of next session.**
+  Neither is blocked on anything external — the ledger reader and the null-rate coverage report
+  (both built this session) are exactly the machinery they need. `02_divergence.ipynb` must print its
+  ledger window and row count at the top and **must not draw a conclusion from 6 rows** — state the
+  limitation plainly, build the join-and-compare machinery so it is genuinely re-runnable, and note
+  that a real read happens once the ledger has accumulated meaningfully more history (the clock
+  starter is hourly and live — see below).
+- D1, D3 stay 🟡 — unchanged from session 3, still pending a green `feature-pipeline` Actions run and
+  a live Hopsworks project respectively. Not touched this session.
+- The instructor rubric-confirmation email and the Hopsworks/HF account creation (RUNBOOK §5) — still
+  outstanding, every session keeps flagging them.
 
 ---
 
@@ -233,13 +291,23 @@ retrofitted to make a broken builder look clean.
 
 ## The single next action
 
-**Session 4** (`docs/RUNBOOK.md` §2.1): EDA notebook (`01_eda.ipynb`) and the
-model-vs-station divergence notebook (`02_divergence.ipynb`) — D11's
-distinctive answer, and genuinely novel for these coordinates. Also validates
-each physics feature against PM2.5 spikes in `03_physics_features.ipynb`
-(`stagnation_index` and friends — see "known gaps" below).
+**Finish session 4** (`docs/RUNBOOK.md` §2.1): `02_divergence.ipynb` and
+`03_physics_features.ipynb`. Both were cut this session under a hard
+deadline, not because of a blocker — `src/aqi/store/ledger.py` (reads the
+ledger, excludes quarantine) and the null-rate-aware
+`reports/metrics/coverage.json` were built specifically so these two
+notebooks would be a straightforward write, not a re-design, when picked
+back up. `02_divergence.ipynb` must print the ledger's window and row count
+at the top and explicitly not draw a conclusion from however few rows exist
+at that point (CLAUDE.md I4) — re-run it again before the report is
+finalized (session 12), once the ledger has real history. `03_physics_features.ipynb`
+answers whether `inversion_proxy` alone carries the dispersion signal
+`stagnation_index`/`ventilation_index` were meant to add, by correlating each
+against PM2.5 spikes; `01_eda.ipynb`'s unconditional correlation numbers
+(r=0.25 capital, r=0.50 Lahore for `inversion_proxy`) are a head start, not a
+substitute.
 
-Before that, two low-effort loose ends worth five minutes each:
+Also still open from session 3, unchanged:
 1. Push this session's commit, then confirm one green `feature-pipeline`
    Actions run (manual `workflow_dispatch` is fine) — closes D1 the same way
    session 0 closed clock-starter.

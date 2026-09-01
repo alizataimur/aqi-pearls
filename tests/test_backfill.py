@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pandas as pd
+
 from aqi.pipelines.backfill import (
     Chunk,
     append_manifest,
@@ -18,6 +20,7 @@ from aqi.pipelines.backfill import (
     load_manifest,
     month_range,
 )
+from aqi.store.parquet_store import ParquetFeatureStore
 
 
 class TestMonthRange:
@@ -103,3 +106,48 @@ class TestCoverageReport:
         assert capital["gap_months"] == ["2024-02"]
         assert capital["total_rows"] == 744
         assert capital["first_time_utc"] == "2024-01-01T00:00:00+00:00"
+        # No store was passed -> data-presence stays unopined-on, not "zero gaps".
+        assert capital["null_rates"] == {}
+
+    def test_null_rates_reflect_data_presence_not_row_presence(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """Row presence alone would call this window gap-free — every hour has
+        a row. Null rates must still surface that half of them carry no real
+        `boundary_layer_height` reading (the ADR-015 shape of bug)."""
+        manifest_path = tmp_path / "manifest.jsonl"
+        append_manifest(
+            {
+                "chunk_key": "capital:2024-01",
+                "zone_id": "capital",
+                "year": 2024,
+                "month": 1,
+                "row_count": 4,
+                "first_time_utc": "2024-01-01T00:00:00+00:00",
+                "last_time_utc": "2024-01-01T03:00:00+00:00",
+                "completed_at_utc": "2024-02-01T00:00:00+00:00",
+            },
+            manifest_path,
+        )
+
+        store = ParquetFeatureStore(root=tmp_path / "feature_store")
+        frame = pd.DataFrame(
+            {
+                "time_utc": pd.date_range("2024-01-01", periods=4, freq="h", tz="UTC"),
+                "city_id": ["capital"] * 4,
+                "pm2_5": [10.0, 11.0, 12.0, 13.0],
+                "boundary_layer_height": [500.0, None, None, 600.0],
+            }
+        )
+        store.write(frame, "aqi_features", 1)
+
+        report = build_coverage_report(
+            start=datetime(2024, 1, 1, tzinfo=UTC),
+            end=datetime(2024, 1, 1, 3, tzinfo=UTC),
+            zone_ids=["capital"],
+            manifest_path=manifest_path,
+            store=store,
+        )
+
+        capital = report["zones"]["capital"]
+        assert capital["gap_months"] == []  # row presence looks perfect
+        assert capital["null_rates"]["boundary_layer_height"] == 0.5
+        assert "pm2_5" not in capital["null_rates"]  # fully populated -> omitted

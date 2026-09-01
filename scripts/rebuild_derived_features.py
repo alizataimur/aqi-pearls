@@ -102,7 +102,9 @@ def rebuild_zone(zone_id: str, group: str) -> pd.DataFrame:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--zones", default=None, help="comma-separated zone ids (default: all)")
+    parser.add_argument(
+        "--zones", default=None, help="comma-separated zone ids (default: all)"
+    )
     args = parser.parse_args(argv)
 
     config = get_config()

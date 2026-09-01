@@ -206,17 +206,30 @@ a sleeping free tier.
 
 ## Guidelines
 
-### D11 — Perform EDA to identify trends ⬜
+### D11 — Perform EDA to identify trends 🟡
 
 | | |
 |---|---|
-| Lives in | `notebooks/01_eda.ipynb`, `notebooks/02_divergence.ipynb` |
-| Evidence | Rendered notebooks, referenced in the report |
+| Lives in | `notebooks/01_eda.ipynb`; `notebooks/02_divergence.ipynb` and `notebooks/03_physics_features.ipynb` **not yet built** |
+| Evidence | `notebooks/01_eda.ipynb` runs top-to-bottom with `nbclient` (no errors); figures committed at `reports/figures/eda_monthly_climatology.png`, `eda_diurnal_profile.png`, `eda_stl_decomposition.png`, `eda_correlation_heatmap.png`. Notebook cell outputs are cleared before commit (CLAUDE.md §16) — the committed figures, not the notebook's own output cells, are what this row's evidence actually points at |
+| Outstanding | `02_divergence.ipynb` (model-vs-station divergence — see below) and `03_physics_features.ipynb` (physics-feature validation against PM2.5 spikes) were both scoped into this session (`docs/RUNBOOK.md` §2.1) but cut under a hard deadline. Neither is a design gap — both are next session's first job. See `docs/STATE.md` |
 
-**Done distinctively:** includes a **model-vs-station divergence analysis** — quantifying how much
-CAMS reanalysis and real instruments disagree at these coordinates. Not published for
-Rawalpindi/Islamabad before, and it exists because the project measures the disagreement rather than
-pretending it away (ADR-001).
+**Done distinctively (so far):** four stated findings, each backed by a chart and by numbers the
+notebook itself computes and prints (never hand-typed — I5's "generated, not typed" discipline
+extended to EDA, not just the metrics report). The smog season is real and asymmetric between zones
+(Lahore's worst/best-month AQI ratio is ~2.2x against the capital's ~1.8x); the capital's winter
+diurnal profile has a genuinely different shape from its own rest-of-year profile and from Lahore's,
+flagged as a hypothesis rather than smoothed over; an STL decomposition shows residual variance is
+measurably higher in smog season for both zones (not just visually — the notebook computes and
+prints the season-conditioned residual std); and a full correlation ranking separates PM10/combustion
+co-pollutant collinearity from the weaker, more mechanistic dispersion signal, setting up the
+physics-feature validation that `03_physics_features.ipynb` still owes. The **model-vs-station
+divergence analysis** — quantifying how much CAMS reanalysis and real instruments disagree at these
+coordinates, novel for these coordinates and motivated by ADR-001 — is designed (`src/aqi/store/
+ledger.py` reads the ledger, `reports/metrics/coverage.json` now reports per-column null rates so a
+future join against the feature store won't silently treat a null as a real reading) but not yet
+written up as a notebook; the ledger holds too few rows today for any conclusion regardless (see
+`docs/STATE.md`).
 
 ### D12 — A variety of models, statistical through deep learning ⬜
 

@@ -44,7 +44,7 @@ import pandas as pd
 from aqi.config import REPO_ROOT, ZoneConfig, get_config, get_zones
 from aqi.pipelines.common import fetch_zone_frame
 from aqi.sources._http import SourceError
-from aqi.store import TIME_COLUMN, get_store
+from aqi.store import CITY_COLUMN, TIME_COLUMN, get_store
 from aqi.store.base import FeatureStore
 
 MANIFEST_PATH = REPO_ROOT / "data" / "backfill_manifest.jsonl"
@@ -212,17 +212,61 @@ def run_backfill(
     return result
 
 
+def _null_rates_by_zone(
+    store: FeatureStore, group: str, start: datetime, end: datetime, zone_ids: list[str]
+) -> dict[str, dict[str, float]]:
+    """Per-column null fraction, per zone, over the requested window.
+
+    Row presence (below) proves a row was written; it says nothing about
+    whether the columns in that row are actually populated. Without this, a
+    six-month source gap in `boundary_layer_height` (ADR-015) reads as "zero
+    gaps" simply because a row exists for every hour. Only columns with a
+    nonzero null rate are included, so the report stays focused on real gaps
+    rather than 240-odd zero entries.
+    """
+    frame = store.read(group, start, end)
+    if frame.empty:
+        return {zone_id: {} for zone_id in zone_ids}
+    result: dict[str, dict[str, float]] = {}
+    for zone_id in zone_ids:
+        zone_frame = frame.loc[frame[CITY_COLUMN] == zone_id]
+        if zone_frame.empty:
+            result[zone_id] = {}
+            continue
+        rates = zone_frame.isna().mean()
+        result[zone_id] = {
+            str(col): round(float(rate), 4) for col, rate in rates.items() if rate > 0
+        }
+    return result
+
+
 def build_coverage_report(
     *,
     start: datetime,
     end: datetime,
     zone_ids: list[str] | None = None,
     manifest_path: Path = MANIFEST_PATH,
+    store: FeatureStore | None = None,
 ) -> dict[str, Any]:
-    """D4 evidence — CLAUDE.md I4/I5: read from the manifest, never typed."""
+    """D4 evidence — CLAUDE.md I4/I5: read from the manifest, never typed.
+
+    Row-presence stats (completed/gap months, row counts) come from the
+    manifest alone, so this stays usable with no real data on disk. Per-column
+    null rates are opt-in via `store` — pass one (e.g. `get_store()`) to have
+    the report also describe *data* presence, not just row presence. Omitted
+    by default so tests exercising only the manifest logic don't need real
+    backfilled data.
+    """
     zones = [z for z in get_zones() if zone_ids is None or z.zone_id in zone_ids]
     manifest = load_manifest(manifest_path)
     expected_months = month_range(start, end)
+
+    null_rates: dict[str, dict[str, float]] = {}
+    if store is not None:
+        config = get_config()
+        null_rates = _null_rates_by_zone(
+            store, config.store.feature_group, start, end, [z.zone_id for z in zones]
+        )
 
     per_zone: dict[str, Any] = {}
     for zone in zones:
@@ -240,6 +284,7 @@ def build_coverage_report(
             "first_time_utc": min((r["first_time_utc"] for r in records), default=None),
             "last_time_utc": max((r["last_time_utc"] for r in records), default=None),
             "total_rows": sum(r["row_count"] for r in records),
+            "null_rates": null_rates.get(zone.zone_id, {}),
         }
 
     return {
@@ -301,7 +346,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
 
-    report = build_coverage_report(start=start, end=end, zone_ids=zone_ids)
+    report = build_coverage_report(
+        start=start, end=end, zone_ids=zone_ids, store=get_store()
+    )
     write_coverage_report(report)
     print(f"coverage report written to {COVERAGE_PATH}")
 

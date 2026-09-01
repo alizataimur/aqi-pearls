@@ -395,3 +395,38 @@ worse walk-forward setup than simply using the more recent one.
 **Consequence:** session 5's `evaluation/splits.py` walk-forward folds must
 end with 2025-26 as the final test chunk. Documented here so the ladder
 doesn't have to re-derive this from the raw BLH gap data a second time.
+
+---
+
+## ADR-017 — Session 4 cut short: `01_eda.ipynb` shipped, `02_divergence.ipynb`
+## and `03_physics_features.ipynb` deferred to next session
+
+**Status:** accepted · 2026-09-01 (session 4)
+
+Session 4's brief (`docs/RUNBOOK.md` §2.1) scoped three notebooks plus the
+`coverage.json` null-rate fix. Partway through — `coverage.json` and
+`src/aqi/store/ledger.py` done, `01_eda.ipynb` written and executed,
+`02_divergence.ipynb`/`03_physics_features.ipynb` not yet started — an
+explicit instruction arrived: finish `01_eda.ipynb` only, update
+`STATE.md`/`DELIVERABLES.md`, commit, and stop, because the real-world
+deadline is tomorrow.
+
+**Chosen:** ship what was finished (`coverage.json` null rates,
+`ledger.py`, `01_eda.ipynb` with its four committed figures), explicitly mark
+D11 🟡 rather than pretending the notebook trio is complete, and hand off the
+remaining two notebooks as next session's *first* job rather than folding a
+rushed, thin version of them into this commit.
+
+**Rejected:** writing thin/placeholder versions of `02_divergence.ipynb` and
+`03_physics_features.ipynb` just to have three files present. A placeholder
+notebook is worse than an honestly absent one — it would either draw a
+conclusion from the ledger's 6 rows (exactly what the session brief said not
+to do) or fake a physics-feature validation that never actually ran the
+spike-conditioned correlation. CLAUDE.md's prime directive (§1) is evidence
+over quantity; a fake D11 sub-item scores worse under audit than a plainly
+marked gap.
+
+**Consequence:** D11 stays 🟡 until next session. The supporting machinery
+(`ledger.py`, the null-rate coverage report) was deliberately built *before*
+the cutoff specifically so the deferred notebooks are a straightforward write
+next time, not a re-design — see `docs/STATE.md`'s "single next action".
