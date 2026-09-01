@@ -834,3 +834,59 @@ flagged translation-quality caveat is worth more under the prime directive
 **Consequence:** a native-speaker pass over `conf/i18n_ur.yaml` (health
 guidance + alert templates, ~16 strings) is a named outstanding item, not a
 silently-skipped step — `docs/STATE.md` carries it forward until done.
+
+---
+
+## ADR-030 — Serving artifacts (Model Registry, feature-store slice) committed to the repo as a deadline expedient
+
+**Status:** accepted · 2026-09-01 (session 6, post-deploy incident)
+
+The deployed Streamlit app crashed with `FileNotFoundError` on Streamlit
+Cloud: `serving/inference.py::load_serving_model` → `registry.load_metadata`
+tried to read `data/model_registry/lightgbm__h{24,48,72}/metadata.json`, and
+a fresh Cloud checkout has no such files — `data/model_registry/` (like
+`data/feature_store/`) is gitignored, and this project's real Model Registry
+(Hopsworks, CLAUDE.md §11.2) is not live: `HOPSWORKS_API_KEY`/
+`HOPSWORKS_PROJECT` are still empty (D3 stays 🟡, `docs/STATE.md`). Locally
+the training pipeline had populated `data/model_registry/` and
+`data/feature_store/`, so the bug was invisible until deployment — nothing
+in local dev or CI (which also never runs the training pipeline) exercises
+a checkout without them.
+
+**Chosen:** force-add the local `LocalModelRegistry` directory
+(`data/model_registry/`, all 8 model families' metadata, plus the `.joblib`
+artifacts that exist for it) and a two-month feature-store slice
+(`data/feature_store/aqi_features/v1/city={capital,lahore}/year=2026/
+month={07,08}/data.parquet` — enough trailing history for every lag/rolling
+feature the serving model reads) directly into git, past the `data/*`
+gitignore rule, the same way the ledger and the AQICN raw archive are
+already committed on purpose (ADR-006, ADR-014) — `git add -f`, no
+`.gitignore` edit, matching that existing precedent rather than inventing a
+parallel one. `tests/test_deploy_assets.py` (this session) now asserts via
+`git ls-files` — not `Path.exists()`, which would have missed exactly this
+bug — that everything the dashboard's startup path opens (the LightGBM
+metadata + artifact for all three served horizons, at least one tracked
+feature-store partition per zone, `reports/dashboard_snapshot.json`,
+`reports/metrics/ladder.json`) is actually tracked, not just present on the
+machine that happens to be running the test.
+
+**Rejected:** waiting for D3 (a live Hopsworks Model Registry project) before
+fixing the deploy. Correct long-term architecture, but Aliza hasn't created
+the project yet (`docs/RUNBOOK.md` §5) and the live demo needed to work
+today. Also rejected: committing only the three `lightgbm__h*` entries the
+app actually serves (ADR-025) and leaving the rest of the registry
+gitignored — simpler to force-add the whole local registry directory in one
+pass than to hand-pick files, and the extra committed metadata (baselines,
+ridge, random forest, SARIMAX, LSTM) is small text plus a few `.joblib`
+files, not a real cost.
+
+**Consequence:** the repo now carries binary model artifacts and a slice of
+derived feature data as committed weight — acceptable for a deadline, not
+where this should stay. A proper fix is D3 going green (Hopsworks Model
+Registry + Feature Store, both already coded and tested against a
+`Protocol`, just never exercised live — `docs/STATE.md`), at which point
+`data/model_registry/` and the committed `data/feature_store/` slice both
+go back to being purely local/regenerable, `git rm --cached` removes them
+from the repo, and `tests/test_deploy_assets.py` gets rewritten to check
+the live registry/store instead of `git ls-files`. Until then, this ADR and
+`docs/STATE.md` name it as debt, not as done.

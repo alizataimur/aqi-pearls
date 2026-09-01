@@ -31,6 +31,17 @@ HORIZONS_HOURS = (24, 48, 72)
 SERVING_MODEL_NAME = "lightgbm"
 
 
+class ModelUnavailableError(RuntimeError):
+    """The serving model's registry metadata or artifact is missing or
+    unloadable (CLAUDE.md I10). This is the *only* exception
+    `load_serving_model` raises for that condition — every caller catches
+    this one type and degrades (a static-snapshot fallback, a clear banner),
+    never a raw `FileNotFoundError` traceback on a live page. Session-6
+    incident: exactly this happened on Streamlit Cloud because
+    `data/model_registry/` was never tracked by git — see docs/DECISIONS.md
+    ADR-030."""
+
+
 @dataclass(frozen=True)
 class LoadedModel:
     horizon_hours: int
@@ -43,14 +54,29 @@ def load_serving_model(
     horizon_hours: int, registry: LocalModelRegistry | None = None
 ) -> LoadedModel:
     registry = registry or LocalModelRegistry()
-    metadata = registry.load_metadata(SERVING_MODEL_NAME, horizon_hours)
+    try:
+        metadata = registry.load_metadata(SERVING_MODEL_NAME, horizon_hours)
+    except (FileNotFoundError, OSError) as exc:
+        raise ModelUnavailableError(
+            f"{SERVING_MODEL_NAME} h{horizon_hours} metadata not found under "
+            "data/model_registry/ — missing from this checkout (not committed "
+            "or not synced) or the training pipeline hasn't run yet"
+        ) from exc
+
     artifact_path = metadata["artifact_path"]
     if artifact_path is None:
-        raise RuntimeError(
-            f"{SERVING_MODEL_NAME} h{horizon_hours} has no artifact in the "
-            "registry — run `python -m aqi.pipelines.training_pipeline` first"
+        raise ModelUnavailableError(
+            f"{SERVING_MODEL_NAME} h{horizon_hours} has no artifact recorded "
+            "in the registry — run `python -m aqi.pipelines.training_pipeline` first"
         )
-    model = joblib.load(artifact_path)
+    try:
+        model = joblib.load(artifact_path)
+    except (FileNotFoundError, OSError) as exc:
+        raise ModelUnavailableError(
+            f"{SERVING_MODEL_NAME} h{horizon_hours} artifact at "
+            f"{artifact_path!r} could not be loaded"
+        ) from exc
+
     return LoadedModel(
         horizon_hours=horizon_hours,
         model=model,

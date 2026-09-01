@@ -197,7 +197,8 @@ predictions and shows them on a simple and descriptive dashboard."*
 | | |
 |---|---|
 | Lives in | `app/streamlit_app.py`, `src/aqi/serving/inference.py` |
-| Evidence | `streamlit run app/streamlit_app.py` — loads the registered LightGBM model (`data/model_registry/`) and the feature store live, shows current AQI, a 3-day point forecast, a SHAP explanation and the model card. `pytest tests/test_streamlit_app.py tests/test_inference.py` — runs every page against real local data with no API server up (the I10 fallback path) |
+| Evidence | Deployed to Streamlit Community Cloud (Aliza). `streamlit run app/streamlit_app.py` — loads the registered LightGBM model (`data/model_registry/`) and the feature store live, shows current AQI, a 3-day point forecast, a SHAP explanation and the model card. `pytest tests/test_streamlit_app.py tests/test_inference.py tests/test_deploy_assets.py` — runs every page against real local data with no API server up (the I10 fallback path), plus asserts every startup-critical file is actually tracked by git |
+| Post-deploy fix | The first live deploy hit two Cloud-only bugs (`ModuleNotFoundError: aqi`, then `FileNotFoundError` on the model registry) — both fixed same-session, see `docs/STATE.md`'s "Post-session-6 incident" and `docs/DECISIONS.md` ADR-030. `load_serving_model`/`get_forecast`/`get_explain` now degrade to the static snapshot with a visible banner instead of crashing (I10) when a model artifact is missing or unloadable |
 | Outstanding | Not deployed to a public URL — Streamlit Community Cloud account creation is a session-10-assigned Aliza action (`docs/RUNBOOK.md` §5), unchanged |
 
 **Done distinctively:** the headline states a point forecast plainly and says *why* it isn't a
@@ -213,8 +214,8 @@ from under a day of history, which would be dishonest (I4) — see ADR-027.
 | | |
 |---|---|
 | Lives in | `app/streamlit_app.py` (Streamlit) + `src/aqi/serving/api.py` (FastAPI) |
-| Evidence | `uvicorn aqi.serving.api:app` then `curl localhost:8000/health`; `pytest tests/test_api.py` — 8 endpoint tests against real local data. Both run and were exercised locally this session |
-| Outstanding | Neither is deployed publicly yet — HF Space (API) and Streamlit Community Cloud (UI) are both Aliza-assigned account-creation steps (`docs/RUNBOOK.md` §5) |
+| Evidence | Streamlit UI deployed to Streamlit Community Cloud (Aliza) and confirmed working after the post-deploy fix (see D9). `uvicorn aqi.serving.api:app` then `curl localhost:8000/health`; `pytest tests/test_api.py` — 8 endpoint tests against real local data, run locally this session |
+| Outstanding | FastAPI is not deployed publicly yet — an HF Space is still an Aliza-assigned account-creation step (`docs/RUNBOOK.md` §5). The Streamlit deploy currently carries committed model/feature-store artifacts as a deadline expedient (ADR-030) rather than reading a live Feature Store/Model Registry — real debt, tracked, not silent |
 
 **Done distinctively:** the UI falls back to reading the store and calling `serving/inference.py`
 directly when the API is unreachable (I10) — proven, not just claimed: `tests/test_streamlit_app.py`

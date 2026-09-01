@@ -101,17 +101,30 @@ def get_current(zone_id: str) -> dict[str, Any]:
 
 def get_forecast(zone_id: str) -> dict[str, Any]:
     if STATIC_MODE:
-        return dict(_static_snapshot()["forecast"][zone_id])
+        result = dict(_static_snapshot()["forecast"][zone_id])
+        result["source"] = "static"
+        return result
     data = _api_get("/forecast", {"zone_id": zone_id})
     if data is not None:
+        data["source"] = "api"
         return data
-    from aqi.serving.inference import forecast_zone, zones
+    from aqi.serving.inference import ModelUnavailableError, forecast_zone, zones
 
     zone = next(z for z in zones() if z.zone_id == zone_id)
-    horizons = forecast_zone(_fallback_frame(), zone_id, zone.timezone)
+    try:
+        horizons = forecast_zone(_fallback_frame(), zone_id, zone.timezone)
+    except ModelUnavailableError:
+        # I10 — degrade, never crash: the registered LightGBM artifact this
+        # page needs is missing or unloadable (session-6 incident: it was
+        # never committed to git — docs/DECISIONS.md ADR-030). Fall back to
+        # the last committed snapshot rather than a raw traceback.
+        fallback = dict(_static_snapshot()["forecast"][zone_id])
+        fallback["source"] = "snapshot_fallback"
+        return fallback
     return {
         "zone_id": zone_id,
         "serving_model": "lightgbm",
+        "source": "live",
         "horizons": [
             {
                 "horizon_hours": h.horizon_hours,
@@ -127,18 +140,29 @@ def get_forecast(zone_id: str) -> dict[str, Any]:
 
 def get_explain(zone_id: str, horizon_hours: int) -> dict[str, Any]:
     if STATIC_MODE:
-        return dict(_static_snapshot()["explain"][zone_id][str(horizon_hours)])
+        result = dict(_static_snapshot()["explain"][zone_id][str(horizon_hours)])
+        result["source"] = "static"
+        return result
     data = _api_get("/explain", {"zone_id": zone_id, "horizon_hours": horizon_hours})
     if data is not None:
+        data["source"] = "api"
         return data
     from aqi.explain.shap_explain import explain_zone
+    from aqi.serving.inference import ModelUnavailableError
 
-    result = explain_zone(_fallback_frame(), zone_id, horizon_hours)
+    try:
+        explanation = explain_zone(_fallback_frame(), zone_id, horizon_hours)
+    except ModelUnavailableError:
+        # I10 — same degrade as get_forecast() above; see its comment and
+        # docs/DECISIONS.md ADR-030.
+        fallback = dict(_static_snapshot()["explain"][zone_id][str(horizon_hours)])
+        fallback["source"] = "snapshot_fallback"
+        return fallback
     return {
-        "zone_id": result.zone_id,
-        "horizon_hours": result.horizon_hours,
-        "predicted_aqi": result.predicted_aqi,
-        "base_value": result.base_value,
+        "zone_id": explanation.zone_id,
+        "horizon_hours": explanation.horizon_hours,
+        "predicted_aqi": explanation.predicted_aqi,
+        "base_value": explanation.base_value,
         "top_drivers": [
             {
                 "feature": d.feature,
@@ -147,11 +171,12 @@ def get_explain(zone_id: str, horizon_hours: int) -> dict[str, Any]:
                 "value": d.value,
                 "shap_value": d.shap_value,
             }
-            for d in result.top_drivers
+            for d in explanation.top_drivers
         ],
-        "briefing_en": result.briefing_en,
-        "briefing_ur": result.briefing_ur,
-        "explainer_note": result.explainer_note,
+        "briefing_en": explanation.briefing_en,
+        "briefing_ur": explanation.briefing_ur,
+        "explainer_note": explanation.explainer_note,
+        "source": "live",
     }
 
 
@@ -231,6 +256,8 @@ def page_forecast(zone_id: str) -> None:
         "(conformal prediction), cut this session (docs/DECISIONS.md)."
     )
     forecast = get_forecast(zone_id)
+    if forecast.get("source") == "snapshot_fallback":
+        st.error("Live model unavailable — showing the last committed snapshot.")
     for h in forecast["horizons"]:
         days = h["horizon_hours"] // 24
         st.subheader(f"D+{days} — {h['target_local_date']}")
@@ -246,6 +273,8 @@ def page_why(zone_id: str) -> None:
         "Horizon", options=[24, 48, 72], format_func=lambda h: f"D+{h // 24}"
     )
     explanation = get_explain(zone_id, horizon_hours)
+    if explanation.get("source") == "snapshot_fallback":
+        st.error("Live model unavailable — showing the last committed snapshot.")
     st.warning(explanation["explainer_note"])
     st.write(explanation["briefing_en"])
     st.write(explanation["briefing_ur"])

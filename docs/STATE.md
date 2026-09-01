@@ -19,6 +19,42 @@ genuine forward prediction. See ADR-025.
 
 ---
 
+## Post-session-6 incident — Streamlit Cloud deploy, fixed, debt recorded
+
+The first real deploy hit two bugs a purely-local session never surfaces, both
+now fixed:
+
+1. **`ModuleNotFoundError: aqi`** — Cloud installs only `requirements.txt`,
+   never runs this repo's own `pip install -e .`, so `import aqi...` failed.
+   Fixed: `app/streamlit_app.py` puts `src/` on `sys.path` itself, right after
+   `from __future__ import annotations` and before any `aqi.*` import.
+2. **`FileNotFoundError` on `data/model_registry/.../metadata.json`** — that
+   directory (like `data/feature_store/`) is gitignored; a fresh Cloud
+   checkout has none of it, only this dev machine's local training-pipeline
+   output did. Fixed two ways: (a) force-added the Model Registry and a
+   two-month feature-store slice into git as a deadline expedient (ADR-030 —
+   **debt, not a design decision**: the real fix is D3, Hopsworks, going
+   green); (b) `load_serving_model` (`serving/inference.py`) now raises one
+   typed `ModelUnavailableError` instead of a raw `FileNotFoundError`, and
+   both `get_forecast()`/`get_explain()` (`app/streamlit_app.py`) catch it and
+   fall back to `reports/dashboard_snapshot.json` with a visible
+   "live model unavailable" banner — I10 applied to a failure mode the
+   original I10 fallback chain hadn't covered (missing *artifact*, not just
+   an unreachable API).
+
+`tests/test_deploy_assets.py` (new) asserts via `git ls-files` — not
+`Path.exists()`, which would have missed this exact bug — that every file the
+dashboard's startup path opens is actually tracked, not just present
+locally. This is the check that would have caught both bugs before the
+deploy; it's in CI now.
+
+**Carried forward as debt (ADR-030):** once D3 is green, `git rm --cached` the
+committed registry/feature-store slice, revert to reading them live, and
+rewrite `tests/test_deploy_assets.py` to check the live store instead of
+`git ls-files`.
+
+---
+
 ## Session 6 — Serving, dashboard, explanations, alerts — CLOSED
 (D9 🟡, D10 🟡, D13 ✅, D14 🟡)
 
