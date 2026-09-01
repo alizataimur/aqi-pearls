@@ -29,6 +29,8 @@ data/*
 # an HF_TOKEN + dataset repo exist â€” same reasoning as the ledger, minus the
 # irrecoverability (this one can be rebuilt from the backfill/feature
 # pipeline if it's ever lost, just not for free).
+!data/feature_store/
+!data/feature_store/**
 !data/backfill_manifest.jsonl
 
 # D14: alerts.yml commits the episode-dedup state after every run — Actions
@@ -81,6 +83,3 @@ reports/**/*.tmp
 
 # Downloaded archives
 *.tar.gz
-
-# Derived feature store — regenerable via 'make backfill' (ADR-006)
-data/feature_store/
