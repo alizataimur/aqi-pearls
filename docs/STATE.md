@@ -3,8 +3,8 @@
 > Read CLAUDE.md first for rules and contracts. This file is *position only*.
 > Update it at the end of every session (CLAUDE.md §19).
 
-**Stage:** 3 — Make the model honest, in progress / Session 5 (the ladder) — CLOSED
-(D5 ✅, D6 ✅, D7 ✅, D12 ✅)
+**Stage:** 4 — Make it usable, in progress / Session 6 (serving, dashboard, explanations, alerts)
+— CLOSED (D9 🟡, D10 🟡, D13 ✅, D14 🟡)
 **Updated:** 2026-09-01
 **Repo status:** public, pushed — https://github.com/alizataimur/aqi-pearls
 **Held-out test window (I2):** the **2025-26 smog season** (Oct 2025 – Feb 2026) — see ADR-016. It
@@ -12,6 +12,64 @@ is the most recent complete season with both `boundary_layer_height` series (obs
 historical-forecast) fully populated; earlier seasons either predate the forecast-BLH archive's
 coverage here or fall inside the observed-BLH gap (ADR-015). Session 5's `evaluation/splits.py`
 walk-forward folds must end with this season as the final test chunk.
+**Live serving model (not the ladder champion):** `/forecast`, `/explain`, the Streamlit app and the
+alert rule all run on the registered **LightGBM** model, not SARIMAX (`reports/metrics/ladder.json`'s
+champion by backtest RMSE) — SARIMAX's registered artifact only supports retrospective scoring, not
+genuine forward prediction. See ADR-025.
+
+---
+
+## Session 6 — Serving, dashboard, explanations, alerts — CLOSED
+(D9 🟡, D10 🟡, D13 ✅, D14 🟡)
+
+Goal (deadline-day session brief, D9/D10/D13/D14): a FastAPI service reading the feature store and
+Model Registry; a 4-page Streamlit dashboard (Now / 3-day forecast / Why / Model card — the
+Scorecard page cut, ledger too sparse to be honest about — ADR-027); SHAP explanations from the
+registered LightGBM model (SARIMAX ruled out — the champion by RMSE, but not tree-explainable, and a
+KernelExplainer was explicitly out of scope); Telegram alerts on the D+1 forecast crossing 200
+(P(AQI>200) unavailable, classifier cut); a `--static` demo mode reading a committed JSON snapshot.
+Built and committed in five steps, one commit each, so a late failure couldn't lose earlier work.
+
+| Item | Status | Notes |
+|---|---|---|
+| `src/aqi/serving/inference.py` | done, new | Shared prediction path — loads the registered LightGBM model (not SARIMAX, ADR-025), builds a live feature row from the zone's latest feature-store hour, serves `/current` and `/forecast`'s numbers |
+| `src/aqi/serving/api.py` | done, new, **ran live** | 6 endpoints: `/health`, `/cities`, `/current`, `/forecast`, `/explain`, `/metrics`. `uvicorn aqi.serving.api:app` tested manually; `pytest tests/test_api.py` (8 tests) |
+| `src/aqi/serving/schemas.py` | done, new | Pydantic response models, one per endpoint |
+| `src/aqi/explain/shap_explain.py` | done, new | `shap.TreeExplainer` on the registered LightGBM model; strict-template briefing sentences (no LLM), English + native Urdu |
+| `src/aqi/explain/i18n.py`, `conf/i18n_ur.yaml` | done, new | Hand-written health guidance + alert templates, English/Urdu — **not yet native-speaker reviewed** (ADR-029, flagged in the YAML header too) |
+| `app/streamlit_app.py` | done, new, **ran live** | 4 pages. API-first, falls back to `serving/inference.py`/`explain/shap_explain.py` directly on any API failure (I10) — `tests/test_streamlit_app.py` runs every page with **no API server running**, so the fallback path is what's actually tested |
+| `src/aqi/alerts/rules.py` | done, new | Episode/all-clear state machine (`data/alerts_state.json`), triggers on D+1 LightGBM forecast > 200 (ADR-026, a documented substitute for CLAUDE.md's real `P(AQI>200) > 0.6` rule) |
+| `src/aqi/alerts/telegram.py` | done, new, **not live-tested** | Env-only credentials (I9); `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are both empty (same credential gap as Hopsworks) — send path tested against a mocked `requests.post`, no real message sent yet |
+| `scripts/render_static_snapshot.py`, `reports/dashboard_snapshot.json` | done, new, **ran live** | `--static` mode's data source, committed like every other `reports/` artifact (I5) |
+| `pyproject.toml` | fixed | `shap` pin bumped 0.46.0 → 0.52.0 (ADR-028, same class of fix as ADR-019's `torch` bump — no MSVC toolchain in this environment); `httpx`, `types-requests` added to `dev` |
+| `docs/DECISIONS.md` | done | ADR-025 through ADR-029 |
+| `docs/DELIVERABLES.md` | done | D9, D10, D13, D14 rows updated |
+
+**A real architectural finding, not just a status update:** the ladder's metrics champion (SARIMAX)
+and the model that actually answers every live question on the dashboard (LightGBM) are different
+models, for a structural reason discovered this session — SARIMAX's session-5 registry artifact
+can only score a backtest, not forecast a real future day. Documented in ADR-025, in
+`serving/inference.py`'s module docstring, and surfaced to the user on every relevant page/response
+(`ExplainResponse.explainer_note`, the Why page's warning banner) — not something to notice only by
+reading code.
+
+### What's still outstanding after this session
+
+- **D9/D10 stay 🟡** — both run correctly locally (evidenced by passing tests against real data) but
+  aren't deployed to a public URL. **Needs Aliza:** Streamlit Community Cloud + an HF Space
+  (`docs/RUNBOOK.md` §5, assigned to session 10 — this session did the code, not the deploy).
+- **D14 stays 🟡** — code and tests are real and green, but no live Telegram message has been sent.
+  **Needs Aliza:** `/newbot` with @BotFather, then supply `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` and
+  re-run `python -m aqi.alerts.telegram`.
+- **SARIMAX still can't serve a genuine live forecast** — `get_forecast(steps=h, exog=...)` is the
+  correct fix (ADR-025) and is a clean, scoped piece of future work, not attempted this session.
+- **`conf/i18n_ur.yaml` needs a native-speaker review pass** (ADR-029) — ~16 strings, health guidance
+  and alert templates.
+- Session 4's leftover notebooks (`02_divergence.ipynb`, `03_physics_features.ipynb`) — still not
+  started, unchanged from session 5's handoff.
+- D1, D3 stay 🟡 — unchanged, still pending a green `feature-pipeline` Actions run and a live
+  Hopsworks project respectively.
+- The instructor rubric-confirmation email — still outstanding, every session keeps flagging it.
 
 ---
 
@@ -370,14 +428,21 @@ retrofitted to make a broken builder look clean.
 
 ## The single next action
 
-**Session 6** (`docs/RUNBOOK.md` §2.1): episode metrics beyond the simple precision/recall/F1 table
-session 5 shipped — CSI, false-alarm ratio by season, **lead time** — plus conformal prediction
-intervals (MAPIE, per-horizon, Mondrian-grouped by season and AQI band). Both were explicitly cut
-from session 5 under the deadline (`docs/DECISIONS.md` ADR-021). Once lead time exists, re-run
-champion promotion under CLAUDE.md §12.3's real primary metric — session 5's champion (SARIMAX, mean
-RMSE 19.50) was selected by mean RMSE instead and may not hold under the real rule. **Before
-installing `mapie`, note ADR-019**: `mapie==1.0.1`'s pin has no wheel for this venv's Python 3.13
-either (same class of problem `torch` hit) — needs its own version bump or a 3.11 environment.
+**Episode metrics + conformal intervals** (differentiators #1/#2, `docs/RUNBOOK.md` §2.1's session 6
+— superseded in numbering by this session's serving/dashboard work, but not in scope): CSI,
+false-alarm ratio by season, **lead time** (CLAUDE.md §12.3's real primary metric), plus MAPIE
+conformal intervals per horizon, Mondrian-grouped by season and AQI band. Both explicitly cut from
+session 5 (`docs/DECISIONS.md` ADR-021) and still cut here. Once lead time exists: (a) re-run
+champion promotion under the real rule — session 5's champion (SARIMAX, mean RMSE 19.50) was
+selected by mean RMSE instead and may not hold; (b) fix `alerts/rules.py` to trigger on
+`P(AQI>200) > 0.6` instead of ADR-026's point-forecast substitute. **Before installing `mapie`, note
+ADR-019**: `mapie==1.0.1`'s pin has no wheel for this venv's Python 3.13 either (same class of
+problem `torch`/`shap` hit — ADR-019, ADR-028) — needs its own version bump or a 3.11 environment.
+
+**SARIMAX live forecasting** (ADR-025): rework `models/sarimax.py` to call
+`SARIMAXResults.get_forecast(steps=h, exog=...)` so the ladder's actual metrics champion can serve
+`/forecast` and `/explain` instead of the LightGBM substitute session 6 shipped. Scoped, understood,
+not attempted under this session's deadline.
 
 Also still outstanding from session 4, not picked up this session:
 `02_divergence.ipynb` and `03_physics_features.ipynb`. Both were cut under session 4's hard
@@ -405,6 +470,14 @@ Still needs Aliza:
 - Create the Hopsworks project + put `HOPSWORKS_API_KEY`/`HOPSWORKS_PROJECT`
   in `.env` and GitHub Secrets (RUNBOOK §5) — `HopsworksFeatureStore` is
   written and ready, just never exercised against a live account.
+- **New this session:** `/newbot` with @BotFather, then put
+  `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` in `.env` and GitHub Secrets
+  (RUNBOOK §5) — `alerts/telegram.py` is written and tested against a mock,
+  just never exercised against a real chat. Re-run
+  `python -m aqi.alerts.telegram` once set to send the real test message.
+- **New this session:** create the Streamlit Community Cloud app + the HF
+  Space for the FastAPI service (RUNBOOK §5, session 10) so D9/D10 can move
+  from 🟡 to ✅ — both run correctly locally today, neither has a public URL.
 
 ---
 

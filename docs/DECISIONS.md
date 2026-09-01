@@ -672,3 +672,165 @@ reported per-rung in `ladder.json` (`n`/`n_train`), so the difference is
 visible rather than hidden — read as "the split's temporal boundary is
 identical, the row-level footprint isn't," not literally bit-identical row
 sets across every rung.
+
+---
+
+## ADR-025 — Live serving uses LightGBM, not SARIMAX, even though SARIMAX is the metrics champion
+
+**Status:** accepted · 2026-09-01 (session 6)
+
+`reports/metrics/ladder.json`'s champion is SARIMAX (ADR-021: mean RMSE
+19.50). But `SarimaxModel.fit_predict_daily` (`models/sarimax.py`, ADR-023)
+was built to **evaluate a backtest**: it extends a fitted model's state with
+`statsmodels`' `.append(actual_endog, ...)`, which requires already knowing
+the true outcome for every day it "predicts." That is exactly right for
+scoring a held-out test season and exactly wrong for a live `/forecast`
+endpoint asking about a day that hasn't happened yet — there is no known
+outcome to append.
+
+**Chosen:** `serving/inference.py` calls the registered **LightGBM** model
+instead. `.predict(row)` needs a feature vector, not a known answer, so it
+serves genuinely future days with no rework. `explain/shap_explain.py`
+explains the same LightGBM model — this session's brief already ruled out a
+`KernelExplainer` on SARIMAX, so the serving model and the explained model
+are now the same model, which is simpler than the alternative (two
+different serving paths) and arguably more honest: the "why" page explains
+the model that's actually answering the question on every other page.
+
+**Rejected:** reworking `SarimaxModel` to call
+`SARIMAXResults.get_forecast(steps=h, exog=...)` for genuine forward
+prediction. This is the *correct* long-term fix — the exog/endog pairing in
+`_daily_series` already means "exog issued on day D describes day D+h," so a
+model fit through day D-1 and asked to forecast day D from its own exog
+would give a real live SARIMAX forecast. Not done today: it needs care
+(excluding the "current" row from training, handling the case where a
+zone's most recent day is itself incomplete) that this deadline doesn't
+allow, and getting it subtly wrong would be worse than the honest
+LightGBM-serves substitution this ADR documents instead.
+
+**Consequence:** `reports/metrics/ladder.json` and the Model card page both
+name SARIMAX as champion; `/forecast`, `/explain`, the Now/3-day
+forecast/Why pages and the alert rule all actually run on LightGBM. Every
+place that could confuse the two states the distinction explicitly
+(`serving/inference.py`'s module docstring, `ExplainResponse.explainer_note`,
+the Why page's warning banner). Fixing SARIMAX for live forecasting is
+the natural next differentiator-adjacent task, not a design gap.
+
+---
+
+## ADR-026 — Alert trigger: D+1 point forecast > 200, not `P(AQI>200) > 0.6`
+
+**Status:** accepted · 2026-09-01 (session 6)
+
+CLAUDE.md §14 specifies alerting on `P(AQI>200) > 0.6` — "the uncertainty
+thesis applied to a real decision." That needs a probability head
+(a classifier, or a conformal interval to derive an exceedance probability
+from), and both are differentiator work cut from every session so far
+(ADR-021; this session's brief states it outright: "P(AQI>200) is
+unavailable since the classifier was cut").
+
+**Chosen:** `alerts/rules.py` triggers on the **D+1 LightGBM point forecast**
+(`horizon_hours == 24`, tomorrow — the most actionable one) crossing 200.
+Deduplication is a state machine (`data/alerts_state.json`, gitignored,
+regenerable) keyed on "is this zone currently in a hazard episode," firing
+only on the transition in (`episode`) or out (`all_clear`) — CLAUDE.md's
+"deduplicate within an episode... send an all-clear" read as a state
+transition rule rather than a fixed time window.
+
+**Rejected:** silently building this as if it were the real `P(AQI>200)`
+rule. `alerts/rules.py`'s module docstring and this ADR both say plainly
+that it's a substitute — an honest, cruder version of the rule CLAUDE.md
+actually wants, not a relabelling of it. CLAUDE.md I5's "generated, never
+typed" discipline applied to *behavior*, not just numbers: the code should
+never claim a rule it doesn't implement.
+
+**Consequence:** once a probability head exists, `alerts/rules.py` gets one
+line changed (the trigger condition) and the state-machine/dedup/all-clear
+machinery around it is unaffected — that part *is* built to the real spec
+already.
+
+---
+
+## ADR-027 — Dashboard: four pages, no scorecard, ledger window shown instead
+
+**Status:** accepted · 2026-09-01 (session 6)
+
+CLAUDE.md §14 specifies five Streamlit pages including a live Scorecard
+(us-vs-AQICN, wins and losses). The forecast ledger currently holds ~10
+observed rows and ~4 AQICN rows spanning under a day (`data/ledger/`,
+confirmed via `store.ledger.ledger_window` at session time) — nowhere near
+enough to compute a trustworthy win/loss comparison, let alone the
+interval-coverage plot the same page would need.
+
+**Chosen:** ship four pages (Now / 3-day forecast / Why / Model card),
+per this session's explicit brief. The Model card page states the ledger's
+real window — start timestamp, end timestamp, row count, read live from
+`store.ledger.ledger_window` (or from the static snapshot in `--static`
+mode) — in the space the scorecard would occupy, with an explicit "why not
+shown" explanation, rather than silently omitting the topic.
+
+**Rejected:** building a scorecard anyway and letting a 10-row comparison
+imply more than it can support. CLAUDE.md I4 ("never claim a benchmark you
+didn't capture") and the prime directive (§1: evidence over quantity) both
+argue against it — a five-page dashboard with one dishonest page is worse
+than a four-page one that says exactly what it has and hasn't got yet.
+
+**Consequence:** the real scorecard is a straightforward addition once the
+now-live, now-fixed (ADR-012) hourly clock starter has accumulated weeks of
+ledger history — the ledger-reading and coverage-reporting machinery
+(`store/ledger.py`, session 4) already exists; only the comparison logic
+and the page itself are missing.
+
+---
+
+## ADR-028 — `shap` pin bumped from 0.46.0 to 0.52.0 (no MSVC build tools in this environment)
+
+**Status:** accepted · 2026-09-01 (session 6)
+
+Same class of problem as ADR-019 (`torch`): `shap==0.46.0` (the original
+pin) has no prebuilt wheel for this environment's Python 3.13 interpreter
+and needs to compile a native C++ extension (`shap.cext`) from source to
+install — which requires an MSVC toolchain this machine doesn't have
+(`error: Microsoft Visual C++ 14.0 or greater is required`).
+
+**Chosen:** bump to `shap==0.52.0`, which ships a `cp312-abi3` wheel —
+Python's stable ABI, forward-compatible with 3.13, so no build step at all.
+
+**Rejected:** installing the Visual C++ Build Tools. Possible, but a
+multi-GB download and installer run against a same-day deadline for a
+version bump that costs one pyproject line and has no known behavioral
+difference for `TreeExplainer` (the only SHAP API this project uses).
+
+**Consequence:** none expected — `shap_explain.py` only calls
+`shap.TreeExplainer(...)(row)`, an API stable across this version range —
+but flagged here per CLAUDE.md §19 so a future session isn't surprised by
+the pin not matching what a tutorial or the CLAUDE.md excerpt implies.
+
+---
+
+## ADR-029 — Urdu strings shipped without native-speaker review
+
+**Status:** accepted, flagged as outstanding · 2026-09-01 (session 6)
+
+CLAUDE.md §14 requires the ~20 fixed Urdu strings (categories, health
+guidance, alert templates) to be "hand-written once... and read by a native
+speaker." `conf/i18n_ur.yaml`'s health-guidance and alert-template strings
+were hand-written this session (never LLM-translated at request time, which
+is the invariant that actually matters for I5/the accessibility claim) but
+**not** reviewed by a native Urdu speaker — this session has no access to
+one.
+
+**Chosen:** ship them anyway, with the gap stated in the YAML file's own
+header comment, in this ADR, and in `docs/STATE.md` — visible in three
+places a reader might look, not buried once. Category names
+(`aqi_scale.py::_CATEGORIES`) were already reviewed in an earlier session
+and are unaffected.
+
+**Rejected:** waiting to ship D13/D14 until a native speaker is available.
+The session deadline doesn't allow it, and a demo-ready feature with a
+flagged translation-quality caveat is worth more under the prime directive
+(§1) than an unshipped one waiting on a reviewer nobody has scheduled yet.
+
+**Consequence:** a native-speaker pass over `conf/i18n_ur.yaml` (health
+guidance + alert templates, ~16 strings) is a named outstanding item, not a
+silently-skipped step — `docs/STATE.md` carries it forward until done.

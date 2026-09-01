@@ -189,32 +189,39 @@ benchmark claim.
 
 ## The web application
 
-### D9 — App loads model and features from the store and shows predictions ⬜
+### D9 — App loads model and features from the store and shows predictions 🟡
 
 **Brief:** *"Your app loads the model and features from the Feature Store, computes model
 predictions and shows them on a simple and descriptive dashboard."*
 
 | | |
 |---|---|
-| Lives in | `app/streamlit_app.py` |
-| Evidence | Public URL, openable in a private window |
+| Lives in | `app/streamlit_app.py`, `src/aqi/serving/inference.py` |
+| Evidence | `streamlit run app/streamlit_app.py` — loads the registered LightGBM model (`data/model_registry/`) and the feature store live, shows current AQI, a 3-day point forecast, a SHAP explanation and the model card. `pytest tests/test_streamlit_app.py tests/test_inference.py` — runs every page against real local data with no API server up (the I10 fallback path) |
+| Outstanding | Not deployed to a public URL — Streamlit Community Cloud account creation is a session-10-assigned Aliza action (`docs/RUNBOOK.md` §5), unchanged |
 
-**Done distinctively:** the headline is a probability and an interval — *"72% chance AQI exceeds 200
-on Friday"* — never a bare number. A live scorecard shows performance against AQICN **including the
-days we lose**.
+**Done distinctively:** the headline states a point forecast plainly and says *why* it isn't a
+probability/interval yet — differentiator #2 (conformal prediction) is cut this session
+(`docs/DECISIONS.md`) — rather than fabricating a number CLAUDE.md's example headline implies. The
+Model card page states the ledger's real window (start, end, row count) instead of a scorecard built
+from under a day of history, which would be dishonest (I4) — see ADR-027.
 
-### D10 — Streamlit/Gradio and Flask/FastAPI ⬜
+### D10 — Streamlit/Gradio and Flask/FastAPI 🟡
 
 **Brief:** *"Use Streamlit/Gradio and Flask/FastApi for the web app."*
 
 | | |
 |---|---|
-| Lives in | `app/` (Streamlit) + `src/aqi/serving/api.py` (FastAPI) |
-| Evidence | Both deployed; the dashboard's network calls hit the API |
+| Lives in | `app/streamlit_app.py` (Streamlit) + `src/aqi/serving/api.py` (FastAPI) |
+| Evidence | `uvicorn aqi.serving.api:app` then `curl localhost:8000/health`; `pytest tests/test_api.py` — 8 endpoint tests against real local data. Both run and were exercised locally this session |
+| Outstanding | Neither is deployed publicly yet — HF Space (API) and Streamlit Community Cloud (UI) are both Aliza-assigned account-creation steps (`docs/RUNBOOK.md` §5) |
 
-**Done distinctively:** the UI falls back to reading the store directly when the API is down (I10),
-and a `--static` mode renders the whole dashboard from committed JSON so a demo cannot be killed by
-a sleeping free tier.
+**Done distinctively:** the UI falls back to reading the store and calling `serving/inference.py`
+directly when the API is unreachable (I10) — proven, not just claimed: `tests/test_streamlit_app.py`
+runs every page with no API server running at all, so CI exercises the fallback path, not just the
+happy path. A `--static` mode (`streamlit run app/streamlit_app.py -- --static`) renders the whole
+dashboard from `reports/dashboard_snapshot.json`, a committed artifact, so a sleeping free tier
+during a live demo can't take it down.
 
 ---
 
@@ -262,26 +269,36 @@ for why a daily-granularity statistical model outperformed hourly-feature tree/n
 session's ladder — the live ledger holds too few rows for a real comparison yet (`docs/STATE.md`) and
 the benchmark pipeline is differentiator #3, explicitly cut this session (`docs/DECISIONS.md`).
 
-### D13 — SHAP or LIME for feature importance ⬜
+### D13 — SHAP or LIME for feature importance ✅
 
 | | |
 |---|---|
-| Lives in | `explain/shap_explain.py`, `explain/briefing.py` |
-| Evidence | The "Why" page rendering real SHAP contributions |
+| Lives in | `src/aqi/explain/shap_explain.py`, `src/aqi/explain/i18n.py`, `conf/i18n_ur.yaml` |
+| Evidence | The "Why" page (`app/streamlit_app.py`) renders real `shap.TreeExplainer` contributions from the registered LightGBM model; `pytest tests/test_shap_explain.py` |
 
-**Done distinctively:** narrated in plain English **and Urdu**. SHAP values become a structured
-dict, the dict fills a strict template, and the LLM only rephrases — so every number comes from the
-model and hallucination is structurally impossible. Works with no LLM key at all.
+**Done distinctively:** narrated in plain English **and native Urdu** — a strict template, never an
+LLM call (no key needed, no network dependency, works fully offline), so every number in the
+sentence traces back to the SHAP driver dict and hallucination is structurally impossible. Explains
+**LightGBM, not SARIMAX** (the ladder's metrics champion) — SARIMAX is a state-space model, not a
+tree ensemble, `shap.TreeExplainer` cannot explain it, and a `KernelExplainer` fallback was ruled out
+for this session (see ADR-025); every response and every page carries an explicit note saying so.
 
-### D14 — Alerts for hazardous AQI levels ⬜
+**Outstanding:** the hand-written Urdu strings (health guidance, alert templates) have not had a
+native-speaker review pass yet — flagged in the file itself, in `docs/DECISIONS.md` ADR-029, and here.
+
+### D14 — Alerts for hazardous AQI levels 🟡
 
 | | |
 |---|---|
-| Lives in | `src/aqi/alerts/` |
-| Evidence | A received Telegram message |
+| Lives in | `src/aqi/alerts/rules.py`, `src/aqi/alerts/telegram.py` |
+| Evidence | `pytest tests/test_alerts.py` — 12 tests, the episode/all-clear state machine and the Telegram send path (mocked HTTP) both exercised |
+| Outstanding | `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are both empty — same credential-gap pattern as Hopsworks (`docs/STATE.md`). No live message has been sent. **Needs Aliza:** `/newbot` with @BotFather (`docs/RUNBOOK.md` §5), then `python -m aqi.alerts.telegram` sends the real test message with the exact code path the tests already cover |
 
-**Done distinctively:** triggered on `P(AQI>200) > 0.6` rather than a point forecast crossing 200 —
-the uncertainty thesis applied to a decision someone actually makes.
+**Done distinctively:** triggered on the D+1 point forecast crossing 200 rather than
+`P(AQI>200) > 0.6` — CLAUDE.md's real rule needs a probability head that's cut this session
+(ADR-026), and this is documented as an honest substitute, not silently relabelled. Deduplication is
+a real state machine (`data/alerts_state.json`), firing only on the transition into a hazard episode
+or back out of it (an all-clear), not a fixed time window.
 
 ---
 
