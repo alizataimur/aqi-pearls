@@ -12,13 +12,16 @@ These tests exist so that cannot happen again quietly.
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 
 import pytest
 
 from aqi.sources.aqicn import (
     AQICNError,
+    StaleReadingError,
     StationMismatchError,
     _haversine_km,
+    verify_freshness,
     verify_station,
 )
 
@@ -75,6 +78,63 @@ class TestStationVerification:
     def test_threshold_is_configurable_but_still_enforced(self) -> None:
         with pytest.raises(StationMismatchError):
             verify_station(feed(33.5651, 73.0169), *ISLAMABAD_STATION, max_km=5.0)
+
+
+def feed_with_time(iso: str) -> dict:
+    return {"status": "ok", "data": {"time": {"iso": iso}}}
+
+
+class TestFreshnessVerification:
+    """Guards the twin failure to ADR-007: right station, stale reading.
+
+    Islamabad's pinned station (`@11739`) passed `verify_station` on every one
+    of 8 consecutive hourly captures (2026-08-31 -> 2026-09-01) while
+    `time.iso` stayed frozen at `2026-02-16T17:00:00+05:00` — the exact value
+    used below. Lahore's (`@11765`) was frozen at `2025-02-18T18:00:00+05:00`,
+    over a year old. Neither would have been caught by station-location
+    verification alone.
+    """
+
+    def test_a_fresh_reading_passes(self) -> None:
+        now = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
+        age = verify_freshness(feed_with_time("2026-09-01T11:30:00+00:00"), now)
+        assert age == pytest.approx(0.5, abs=0.01)
+
+    def test_the_actual_islamabad_regression(self) -> None:
+        """The frozen reading found in data/raw/aqicn/islamabad, as a test."""
+        now = datetime(2026, 9, 1, 18, 25, 10, tzinfo=UTC)
+        with pytest.raises(StaleReadingError, match="older than"):
+            verify_freshness(feed_with_time("2026-02-16T17:00:00+05:00"), now)
+
+    def test_the_actual_lahore_regression(self) -> None:
+        """The frozen reading found in data/raw/aqicn/lahore, as a test."""
+        now = datetime(2026, 9, 1, 18, 25, 10, tzinfo=UTC)
+        with pytest.raises(StaleReadingError, match="older than"):
+            verify_freshness(feed_with_time("2025-02-18T18:00:00+05:00"), now)
+
+    def test_threshold_is_configurable_but_still_enforced(self) -> None:
+        now = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
+        # 2 hours old passes the default 6h threshold...
+        verify_freshness(feed_with_time("2026-09-01T10:00:00+00:00"), now)
+        # ...but fails a stricter one.
+        with pytest.raises(StaleReadingError):
+            verify_freshness(
+                feed_with_time("2026-09-01T10:00:00+00:00"), now, max_age_hours=1.0
+            )
+
+    def test_missing_time_block_fails_closed(self) -> None:
+        now = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
+        with pytest.raises(StaleReadingError, match="no time.iso"):
+            verify_freshness({"status": "ok", "data": {}}, now)
+
+    def test_naive_timestamp_fails_closed(self) -> None:
+        now = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
+        with pytest.raises(StaleReadingError, match="no timezone offset"):
+            verify_freshness(feed_with_time("2026-09-01T10:00:00"), now)
+
+    def test_stale_reading_is_a_kind_of_aqicn_error(self) -> None:
+        """Callers that catch AQICNError (e.g. clock_starter.main) still catch this."""
+        assert issubclass(StaleReadingError, AQICNError)
 
 
 class TestHaversine:

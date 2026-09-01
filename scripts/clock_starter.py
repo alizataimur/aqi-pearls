@@ -44,6 +44,7 @@ from aqi.sources.aqicn import (  # noqa: E402
     extract_forecast,
     extract_observation,
     fetch_feed,
+    verify_freshness,
     verify_station,
 )
 
@@ -188,9 +189,17 @@ def capture_city(city: dict[str, Any], token: str, now: datetime, dry_run: bool)
 
     # Keep the untouched response. A transform bug must never mean a lost
     # capture, and the schema is not reliably documented (CLAUDE.md §8.2).
+    # Kept even when the freshness check below rejects the reading — that raw
+    # archive is exactly what exposed the frozen-timestamp bug this check now
+    # guards against, and losing it would remove the only evidence a future
+    # investigation would have.
     if not dry_run:
         raw_path = RAW / city_id / f"{now.strftime('%Y-%m-%d')}.jsonl"
         append_jsonl(raw_path, {"captured_at_utc": now.isoformat(), "payload": payload})
+
+    # Refuse a reading that is correctly located but stale. verify_station
+    # alone let a frozen station.time.iso pass for months of hourly captures.
+    verify_freshness(payload, now)
 
     observation = extract_observation(payload)
     observation_record = {

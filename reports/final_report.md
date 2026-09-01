@@ -152,6 +152,38 @@ which rejects any station more than 60 km from its configured coordinates *befor
 the ledger. Rawalpindi has no pinned station and is skipped rather than given Islamabad's
 instrument — one measurement must not be written as two series.
 
+### 3.3 The station that was the right place and the wrong time
+
+Pinning fixed *where* the reading came from. It did not check *when* it was taken, and that gap
+hid a second, more serious failure of the same shape.
+
+Reading the **raw payloads** in `data/raw/aqicn/` rather than the parsed ledger — the same
+discipline that caught §3.2 — shows both pinned stations returning `status: "ok"`, a plausible AQI,
+and the correct city, across every one of 8 consecutive hourly captures spanning
+2026-08-31T14:10:50Z to 2026-09-01T18:25:10Z (roughly 28 hours). In every single one, the feed's own
+`data.time.iso` field — the timestamp the station claims for its reading — is **frozen**: Islamabad's
+`@11739` reports `2026-02-16T17:00:00+05:00` in all 8 captures, Lahore's `@11765` reports
+`2025-02-18T18:00:00+05:00` — over a year old — in all 8. `pm25` (154 and 34 respectively) is
+identical across every capture too, which is the visible symptom of the same cause: the station is
+not publishing a new reading, and AQICN is serving the last one it has on every request.
+
+`verify_station` checks *which* station answered and correctly stops the Delhi failure from §3.2. It
+was never asked whether the reading it received was current, so a station that stopped updating
+looks identical to one reporting live — same status, same shape, same plausible number. This is the
+same mistake as §3.2 (trusted because the HTTP status was `200`) one field deeper, and it is exactly
+the "checking a proxy instead of the evidence that would settle it" pattern named in §10.1.
+
+The fix: `verify_freshness()` (`src/aqi/sources/aqicn.py`), called alongside `verify_station()` in
+`scripts/clock_starter.py`, parses `time.iso` and rejects any reading older than a configurable
+threshold (default 6 hours — capture is hourly, so a live station should never be older than that)
+before it reaches the ledger. `tests/test_aqicn_station.py::TestFreshnessVerification` regression-
+tests it against the exact frozen timestamps found in the raw payloads above. The guard is
+preventive, not retroactive: **the 16 already-committed observed rows for this window are left in
+the ledger untouched (I3)** — they are real readings, just not current ones, and quarantining them
+would misrepresent what actually happened. §8 and §9 state plainly what this means for the numbers
+that rest on them, and §10 records it as a standing limitation until a station that is verifiably
+both correctly located *and* currently updating is found and pinned.
+
 ---
 
 ## 4. Feature engineering *(D2)*
@@ -480,8 +512,17 @@ realized value afterwards. What is missing is elapsed time, which is the one inp
 could have produced faster. The comparison becomes meaningful at roughly 30 days and is expected to
 be reportable from early October.
 
+**A second, more serious problem sits underneath the short window: the ground truth itself.** §3.3
+found that both pinned AQICN stations returned a frozen reading for the entire capture period —
+`time.iso` never advanced. Of the **16 station-observation rows** the benchmark's `y_true` would be
+scored against, **0 carry a genuinely current observation**; all 16 repeat one stale value per city.
+A short-but-real window would still be honestly reportable as "too short to conclude anything yet."
+A window built on a ground-truth feed that was not actually updating cannot be scored at all,
+regardless of length, until a live station replaces it (§3.3, §10).
+
 No benchmark is reconstructed, backfilled, or estimated. A scorecard covering **2 calendar days**
-(2026-08-31 and 2026-09-01) is presented as covering 2 calendar days.
+(2026-08-31 and 2026-09-01), of which **0 days carry a fresh ground-truth reading**, is presented as
+exactly that — not as 2 usable days.
 
 ---
 
@@ -498,8 +539,13 @@ Two AQICN stations sit inside one CAMS grid cell (§3.1), which additionally all
 variation the model structurally cannot resolve to be measured.
 
 At submission this rests on **16 paired observations** (the station-observation row count from §8,
-each pairable against its zone's CAMS feature-store value for the same hour). It is reported as a
-method with a stated sample size, not as a finding.
+each pairable against its zone's CAMS feature-store value for the same hour), **of which 0 carry a
+genuinely current instrument reading** — §3.3 found both stations' `time.iso` frozen across the
+entire capture window. Every one of the 16 pairs is CAMS-for-the-current-hour against a station value
+that is, for Islamabad, roughly six and a half months stale, and for Lahore, over a year stale. That
+is not a divergence measurement; it is a comparison against a number the instrument stopped
+producing. It is reported as a method with a stated sample size and a stated defect, not as a
+finding, and no divergence figure is computed from these 16 rows anywhere in this report.
 
 The exploratory analysis that did complete is in `notebooks/01_eda.ipynb`, with figures in
 `reports/figures/`.
@@ -511,48 +557,60 @@ The exploratory analysis that did complete is in `notebooks/01_eda.ipynb`, with 
 Stated at length, because a clear account of what a system cannot do is the strongest available
 evidence that the rest of its numbers are real.
 
-1. **Training labels are model reanalysis, not measurement.** CAMS is a physical model. Where it is
+1. **The ground-truth station feed was stale for the entire ledger window, and this is the single
+   most important limitation in this document.** Both pinned AQICN stations (§3.3) returned a
+   frozen `time.iso` across all 8 hourly captures each — Islamabad's `@11739` stuck at
+   `2026-02-16T17:00:00+05:00`, Lahore's `@11765` at `2025-02-18T18:00:00+05:00`, over a year old.
+   Of the ledger's 16 station-observation rows, **0 carry a genuinely current reading**. Every
+   number in §8 (the AQICN benchmark) and §9 (model-vs-station divergence) that depends on
+   ground truth is built on this defect, not merely on a short window — a longer window of the
+   same stale feed would not have fixed it. A `verify_freshness()` guard now exists to stop this
+   going forward (§3.3); it does not repair what was already captured, and I3 forbids rewriting it.
+2. **Training labels are model reanalysis, not measurement.** CAMS is a physical model. Where it is
    biased, the model learns the bias.
-2. **The twin cities are one grid cell.** Islamabad and Rawalpindi cannot be forecast independently
+3. **The twin cities are one grid cell.** Islamabad and Rawalpindi cannot be forecast independently
    from this data, whatever the returned coordinates imply.
-3. **Boundary-layer height has two source gaps** (§4.3), so the two dispersion features derived from
+4. **Boundary-layer height has two source gaps** (§4.3), so the two dispersion features derived from
    it cover shorter windows than the rest of the feature set.
-4. **Forecasts are point estimates.** Conformal prediction was cut, so there are no intervals, no
+5. **Forecasts are point estimates.** Conformal prediction was cut, so there are no intervals, no
    exceedance probabilities, and no coverage validation. The headline the product was designed
    around — *"72% chance AQI exceeds 200 on Friday"* — is not something this system can currently
    say.
-5. **The benchmark window is days, not months** (§8). Every claim about beating or losing to the
-   incumbent is scoped to it. The live scorecard page was cut with it, leaving four dashboard pages
-   rather than five.
-6. **Rawalpindi has no pinned station**, so it contributes no ground truth of its own.
-7. **The AQICN forecast block carries PM2.5, PM10 and UVI but no ozone**, so the comparison is
+6. **The benchmark window is days, not months** (§8), independent of the staleness defect in (1).
+   Every claim about beating or losing to the incumbent is scoped to it. The live scorecard page
+   was cut with it, leaving four dashboard pages rather than five.
+7. **Rawalpindi has no pinned station**, so it contributes no ground truth of its own.
+8. **The AQICN forecast block carries PM2.5, PM10 and UVI but no ozone**, so the comparison is
    PM2.5-to-PM2.5. PM2.5 drives AQI here, but the restriction is real.
-8. **AQI conversion differences are not forecast differences.** The 2024 EPA breakpoint revision is
+9. **AQI conversion differences are not forecast differences.** The 2024 EPA breakpoint revision is
    used throughout; providers have not all migrated, and part of any gap against a provider's
    published AQI is arithmetic rather than skill.
-9. **The model registry is a directory committed to git.** Hopsworks is implemented and passes the
-   same test suite as the Parquet backend, but is not connected to a live project. Committing
-   serving artifacts was a deadline expedient (ADR-030), and the deployment failure in §7.2 is the
-   direct consequence of a registry that a fresh checkout cannot otherwise reach.
-10. **The FastAPI service is not deployed** (§7.2), so the dashboard does not consume it in
+10. **The model registry is a directory committed to git.** Hopsworks is implemented and passes the
+    same test suite as the Parquet backend, but is not connected to a live project. Committing
+    serving artifacts was a deadline expedient (ADR-030), and the deployment failure in §7.2 is the
+    direct consequence of a registry that a fresh checkout cannot otherwise reach.
+11. **The FastAPI service is not deployed** (§7.2), so the dashboard does not consume it in
     production.
-11. **The alert channel is email, not WhatsApp** (§7.3) — reachable, but not where this audience is.
-12. **No user validation.** The citizen framing — Urdu, hazard alerts, the school-closure question —
+12. **The alert channel is email, not WhatsApp** (§7.3) — reachable, but not where this audience is.
+13. **No user validation.** The citizen framing — Urdu, hazard alerts, the school-closure question —
     was a design constraint, not a validated need. No residents were interviewed.
-13. **Two zones only.** Deliberate: two genuinely distinct CAMS cells is the honest maximum from
+14. **Two zones only.** Deliberate: two genuinely distinct CAMS cells is the honest maximum from
     this data.
 
 ### 10.1 A failure mode this project kept hitting
 
-Nine separate defects across this build reduce to two mistakes, and both are worth more to a reader
-than any individual bug.
+Eleven separate defects across this build reduce to two mistakes, and both are worth more to a
+reader than any individual bug.
 
 **Checking a proxy that was easy to reach instead of the evidence that would settle it.** A parser
 parity test that compared one field. A coverage report that counted rows rather than values. A
 quarantine rule that filtered on capture time when the station name was sitting in the record. A
-station lookup trusted because the HTTP status was 200. A pipeline test that mocked the fetch
-function wholesale and therefore never exercised the code path that was broken. A portability test
-that verified the function which writes paths while the paths already committed stayed wrong.
+station lookup trusted because the HTTP status was 200 for *location* (§3.2) — and, checked only
+later, trusted again for *freshness*, in the exact same payload, by the exact same reasoning (§3.3):
+`status: "ok"` and a plausible AQI said nothing about whether `time.iso` had moved in six months. A
+pipeline test that mocked the fetch function wholesale and therefore never exercised the code path
+that was broken. A portability test that verified the function which writes paths while the paths
+already committed stayed wrong.
 
 **Two environments that differed and were never compared.** PyYAML on the laptop against the stdlib
 fallback in CI (§7.1). A developer virtualenv containing `fastapi` and `torch` against a CI runner
@@ -618,7 +676,7 @@ numbers reserved and unused), each stating what was chosen, what was rejected, a
 ```bash
 pip install -e ".[dev]"
 cp .env.example .env          # add AQICN_TOKEN
-pytest                        # 235 tests (231 passed, 4 skipped) including the leakage suite
+pytest                        # 242 tests (238 passed, 4 skipped) including the leakage suite
 python scripts/probe_sources.py
 make backfill
 make train

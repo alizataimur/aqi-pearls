@@ -28,6 +28,7 @@ import random
 import time
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime
 from typing import Any
 
 DEFAULT_BASE = "https://api.waqi.info/feed"
@@ -37,6 +38,13 @@ DEFAULT_BASE = "https://api.waqi.info/feed"
 # than the ~690 km miss that ADR-007 was written about.
 MAX_STATION_DRIFT_KM = 60.0
 
+# How old a station's own `time.iso` may be before its reading is refused as a
+# current observation. Capture is hourly (CLAUDE.md §6); a genuinely live
+# station updates at least that often. Wide enough to tolerate one missed
+# update, nowhere near wide enough to accept the reading found frozen for
+# months (see StaleReadingError below).
+MAX_OBSERVATION_AGE_HOURS = 6.0
+
 
 class AQICNError(RuntimeError):
     """Raised when the feed cannot be retrieved or reports a non-ok status."""
@@ -44,6 +52,10 @@ class AQICNError(RuntimeError):
 
 class StationMismatchError(AQICNError):
     """The feed returned a station that is not where the config says it is."""
+
+
+class StaleReadingError(AQICNError):
+    """The station answered from the right place, but its reading is old."""
 
 
 def fetch_feed(
@@ -168,6 +180,49 @@ def verify_station(
             "write it to the ledger"
         )
     return distance
+
+
+def verify_freshness(
+    payload: dict[str, Any],
+    now: datetime,
+    *,
+    max_age_hours: float = MAX_OBSERVATION_AGE_HOURS,
+) -> float:
+    """Assert the station's reading was actually taken recently.
+
+    `verify_station` checks WHICH station answered; it says nothing about WHEN
+    the reading it carries was taken. That gap let AQICN's pinned Islamabad
+    and Lahore stations pass every check for eight consecutive hourly
+    captures while `time.iso` never advanced past a single frozen timestamp —
+    `status: "ok"`, a plausible AQI, the right station, the wrong age. Same
+    shape of mistake as ADR-007 (trusted because the HTTP status was 200), one
+    layer further in.
+
+    Returns the observation's age in hours so the caller can log it. Raises
+    :class:`StaleReadingError` past ``max_age_hours``.
+    """
+    data = payload.get("data", {}) or {}
+    time_block = data.get("time", {}) or {}
+    iso = time_block.get("iso")
+    if not iso:
+        raise StaleReadingError("feed carries no time.iso to verify freshness against")
+
+    try:
+        observed_at = datetime.fromisoformat(iso)
+    except ValueError as exc:
+        raise StaleReadingError(f"time.iso {iso!r} is not a parseable timestamp") from exc
+    if observed_at.tzinfo is None:
+        raise StaleReadingError(f"time.iso {iso!r} has no timezone offset")
+
+    delta = now.astimezone(UTC) - observed_at.astimezone(UTC)
+    age_hours = delta.total_seconds() / 3600.0
+    if age_hours > max_age_hours:
+        raise StaleReadingError(
+            f"station reading is {age_hours:.1f}h old (time.iso={iso}) — older than "
+            f"the {max_age_hours}h freshness threshold, refusing to write it as a "
+            "current observation"
+        )
+    return age_hours
 
 
 def extract_observation(payload: dict[str, Any]) -> dict[str, Any]:
