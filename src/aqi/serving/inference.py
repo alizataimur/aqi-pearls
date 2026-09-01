@@ -63,7 +63,11 @@ def load_serving_model(
             "or not synced) or the training pipeline hasn't run yet"
         ) from exc
 
-    artifact_path = metadata["artifact_path"]
+    # Never `metadata["artifact_path"]` directly (ADR-031, session-6
+    # incident) — that field may hold an absolute path baked in on a
+    # different machine. `resolve_artifact_path` reconstructs a real path on
+    # *this* checkout from just the filename.
+    artifact_path = registry.resolve_artifact_path(SERVING_MODEL_NAME, horizon_hours)
     if artifact_path is None:
         raise ModelUnavailableError(
             f"{SERVING_MODEL_NAME} h{horizon_hours} has no artifact recorded "

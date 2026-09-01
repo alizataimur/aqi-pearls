@@ -4,11 +4,12 @@
 the days it loses.** Three-day, uncertainty-aware air quality forecasts for Rawalpindi/Islamabad and
 Lahore, explained in plain Urdu and English, running on $0 of serverless infrastructure.
 
+> 🌐 **Live dashboard:** **[aqi-pearls-predictor.streamlit.app](https://aqi-pearls-predictor.streamlit.app/)**
+>
 > 📋 **Marking this?** [`docs/DELIVERABLES.md`](docs/DELIVERABLES.md) maps every requirement in the
 > brief to where it lives and how to verify it.
 >
-> 🚧 **In build.** [`docs/STATE.md`](docs/STATE.md) has the current position. Live URL goes here
-> once the dashboard ships.
+> 🚧 **In build.** [`docs/STATE.md`](docs/STATE.md) has the current position.
 
 ---
 

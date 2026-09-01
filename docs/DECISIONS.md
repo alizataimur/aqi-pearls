@@ -890,3 +890,80 @@ go back to being purely local/regenerable, `git rm --cached` removes them
 from the repo, and `tests/test_deploy_assets.py` gets rewritten to check
 the live registry/store instead of `git ls-files`. Until then, this ADR and
 `docs/STATE.md` name it as debt, not as done.
+
+---
+
+## ADR-031 — `LocalModelRegistry.register()` baked in an absolute, machine-specific artifact path
+
+**Status:** accepted · 2026-09-01 (session 6, second post-deploy incident)
+
+After ADR-030's fix (committing the registry into git), the live Streamlit
+app still showed "Live model unavailable — showing the last committed
+snapshot" on the 3-day forecast and Why pages. Reproduced properly per
+instruction — cloned the repo fresh (`git clone`, tracked files only, not a
+copy of the working tree) and called `load_serving_model(24)` against that
+clone, with the real dev repo's `data/model_registry/` temporarily moved
+aside so a hardcoded path pointing back at it couldn't quietly mask the
+bug — and read the actual exception rather than guessing from source:
+
+```
+FileNotFoundError: [Errno 2] No such file or directory:
+'C:\\Users\\xesha\\Documents\\aqi-pearls\\data\\model_registry\\lightgbm__h24\\model.joblib'
+```
+
+Root cause: `LocalModelRegistry.register()` (`models/registry.py`) wrote
+`artifact_path=str(artifact_path)` into `metadata.json`, where
+`artifact_path` was built from `DEFAULT_ROOT = Path(__file__).resolve()...`
+— an **absolute path on the machine that ran the training pipeline**. Every
+already-committed `metadata.json` carries this dev machine's Windows path
+literally. It happens to still resolve *on this machine*, which is exactly
+why the bug was invisible locally and only showed up on a genuinely
+different filesystem (a fresh clone, or Streamlit Cloud's container) —
+`tests/test_deploy_assets.py`'s tracked-ness checks (ADR-030) all passed
+throughout, because the *file* was correctly tracked; only the *path
+recorded to find it* was wrong.
+
+**The session brief's own hypothesis — a too-short committed feature-store
+slice (only 2026-07/08) — was checked directly against this same
+reproduction and refuted for this bug**: the raised exception was
+`FileNotFoundError` on the model artifact, not any feature-row or NaN-related
+error, and July+August comfortably covers the 168h lookback the latest
+tracked row (2026-08-31) needs. That said, a too-short slice is a real,
+independent risk on its own — see the new
+`TestFeatureStoreCoversLookbackWindow` guard below, kept regardless of this
+ADR's specific finding.
+
+**Chosen:** two changes, `models/registry.py` + `serving/inference.py`:
+1. `register()` now writes only the artifact's **filename**
+   (`model.joblib` / `model.pt`) to `metadata.json`, never a path.
+2. A new `LocalModelRegistry.resolve_artifact_path(model_name,
+   horizon_hours)` reconstructs the real path by joining that filename onto
+   *this checkout's own* `entry_dir` — `Path(stored).name` extracts just the
+   filename whether `stored` is old-format (a full absolute path, already
+   committed) or new-format (bare filename), so this fixes every
+   already-committed `metadata.json` too, with no need to regenerate or
+   re-register anything.
+3. `load_serving_model` calls `resolve_artifact_path` instead of trusting
+   `metadata["artifact_path"]` directly.
+
+Verified by copying the fixed `registry.py`/`inference.py` into the same
+fresh clone (dev repo's registry still moved aside) and re-running the
+Streamlit app end-to-end via `AppTest`: no exception, no error banner, on
+any of the four pages.
+
+**Rejected:** regenerating `data/model_registry/`'s committed metadata by
+re-running the training pipeline to produce filename-only paths from
+scratch. Unnecessary — `resolve_artifact_path`'s `Path(...).name` handles
+the already-committed absolute-path metadata transparently, and re-running
+the full ladder costs real time this deadline doesn't have for a change
+that's cosmetic once the resolver is fixed.
+
+**Consequence:** `tests/test_deploy_assets.py` gained
+`TestArtifactPathIsPortable` (asserts `resolve_artifact_path` returns a
+path anchored under *this* registry's own `entry_dir`, and that the
+resolved file exists) — the direct regression test for the bug this ADR
+describes, distinct from ADR-030's tracked-ness checks, which this bug
+proved insufficient on their own. Any future `LocalModelRegistry` consumer
+(the FastAPI service, once D10 needs it live — see D10's row in
+`docs/DELIVERABLES.md`) must go through `resolve_artifact_path`, never read
+`metadata["artifact_path"]` directly.

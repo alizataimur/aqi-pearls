@@ -111,7 +111,13 @@ class LocalModelRegistry:
             metrics=metrics,
             champion=champion,
             registered_at=datetime.now(UTC).isoformat(),
-            artifact_path=str(artifact_path) if artifact_path else None,
+            # Filename only, not `str(artifact_path)` (session-6 incident,
+            # ADR-031): an absolute path is specific to the machine that ran
+            # the training pipeline and does not exist on any other checkout
+            # (a fresh clone, or a deploy target) — `resolve_artifact_path`
+            # below is the only place a real path gets reconstructed, always
+            # relative to *this* checkout's registry root.
+            artifact_path=artifact_path.name if artifact_path else None,
         )
         (entry_dir / "metadata.json").write_text(
             json.dumps(asdict(metadata), indent=2), encoding="utf-8"
@@ -121,6 +127,20 @@ class LocalModelRegistry:
     def load_metadata(self, model_name: str, horizon_hours: int) -> dict[str, Any]:
         path = self._entry_dir(model_name, horizon_hours) / "metadata.json"
         return json.loads(path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+
+    def resolve_artifact_path(self, model_name: str, horizon_hours: int) -> Path | None:
+        """The artifact's real path on *this* checkout — never trusts
+        `metadata["artifact_path"]` as a literal path (ADR-031): only its
+        filename is used, joined onto this registry's own, portable
+        `entry_dir`. Works for both the old (pre-fix) committed metadata,
+        which stored a full machine-specific absolute path, and the new
+        filename-only format `register()` writes now — `Path(...).name`
+        extracts the filename either way."""
+        metadata = self.load_metadata(model_name, horizon_hours)
+        stored = metadata.get("artifact_path")
+        if stored is None:
+            return None
+        return self._entry_dir(model_name, horizon_hours) / Path(stored).name
 
     def promote_champion(
         self,

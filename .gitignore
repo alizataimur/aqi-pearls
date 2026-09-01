@@ -31,6 +31,32 @@ data/*
 # pipeline if it's ever lost, just not for free).
 !data/backfill_manifest.jsonl
 
+# ADR-030: serving artefacts are committed as a deadline expedient, because D3
+# (Hopsworks Model Registry) is not green. A fresh checkout (Streamlit Cloud)
+# has no other way to obtain them. tests/test_deploy_assets.py fails loudly if
+# this drifts. Committed: champion.json, every model's metadata (the model card
+# reads all of them), the LightGBM serving models (ADR-025) and the baselines
+# (I6 — baselines are first-class). Excluded: random_forest (56 MB), sarimax
+# and lstm boosters — nothing served loads them and they are regenerable.
+!data/model_registry/
+data/model_registry/*
+!data/model_registry/champion.json
+!data/model_registry/*/
+data/model_registry/*/*
+!data/model_registry/*/metadata.json
+!data/model_registry/lightgbm__h24/model.joblib
+!data/model_registry/lightgbm__h48/model.joblib
+!data/model_registry/lightgbm__h72/model.joblib
+!data/model_registry/persistence__h24/model.joblib
+!data/model_registry/persistence__h48/model.joblib
+!data/model_registry/persistence__h72/model.joblib
+!data/model_registry/seasonal_naive__h24/model.joblib
+!data/model_registry/seasonal_naive__h48/model.joblib
+!data/model_registry/seasonal_naive__h72/model.joblib
+!data/model_registry/climatology__h24/model.joblib
+!data/model_registry/climatology__h48/model.joblib
+!data/model_registry/climatology__h72/model.joblib
+
 # Raw payloads split by whether they can be fetched again (ADR-006).
 # AQICN raw is irreplaceable â€” there is no history endpoint, and each CI run is
 # a fresh container, so anything not committed is gone. Commit it.

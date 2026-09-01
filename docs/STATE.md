@@ -4,9 +4,14 @@
 > Update it at the end of every session (CLAUDE.md §19).
 
 **Stage:** 4 — Make it usable, in progress / Session 6 (serving, dashboard, explanations, alerts)
-— CLOSED (D9 🟡, D10 🟡, D13 ✅, D14 🟡)
+— CLOSED (D9 ✅, D10 🟡, D13 ✅, D14 🟡)
 **Updated:** 2026-09-01
 **Repo status:** public, pushed — https://github.com/alizataimur/aqi-pearls
+**Live dashboard:** <https://aqi-pearls-predictor.streamlit.app/> — confirmed rendering on the
+**live model path**, not the static-snapshot fallback, after ADR-031's fix (verified via a fresh
+`git clone`, not the working tree — see below). Runs entirely on the I10 direct-store/registry
+fallback path today, not the API: no FastAPI service is deployed anywhere, so `_api_get()` always
+fails over to `serving/inference.py` directly. See D10.
 **Held-out test window (I2):** the **2025-26 smog season** (Oct 2025 – Feb 2026) — see ADR-016. It
 is the most recent complete season with both `boundary_layer_height` series (observed and
 historical-forecast) fully populated; earlier seasons either predate the forecast-BLH archive's
@@ -19,9 +24,9 @@ genuine forward prediction. See ADR-025.
 
 ---
 
-## Post-session-6 incident — Streamlit Cloud deploy, fixed, debt recorded
+## Post-session-6 incidents — Streamlit Cloud deploy, three bugs, all fixed, one debt recorded
 
-The first real deploy hit two bugs a purely-local session never surfaces, both
+The first real deploy hit three bugs a purely-local session never surfaces, all
 now fixed:
 
 1. **`ModuleNotFoundError: aqi`** — Cloud installs only `requirements.txt`,
@@ -41,12 +46,28 @@ now fixed:
    "live model unavailable" banner — I10 applied to a failure mode the
    original I10 fallback chain hadn't covered (missing *artifact*, not just
    an unreachable API).
+3. **The banner from (2) kept showing even after the registry was tracked** —
+   `metadata.json`'s `artifact_path` was an absolute, machine-specific path
+   (`C:\Users\xesha\Documents\aqi-pearls\...`), baked in by whichever machine
+   ran the training pipeline. Correctly tracked by git, present in every
+   checkout, and still unresolvable on any *other* machine. Found by cloning
+   the repo fresh and reading the actual raised `FileNotFoundError`, not by
+   guessing from source (ADR-031) — which also directly checked and **refuted**
+   the standing hypothesis that the committed feature-store slice (July+Aug
+   only) was too short; that's a real, separate risk, now guarded by a new
+   test, but it was not this bug. Fixed: `LocalModelRegistry.
+   resolve_artifact_path()` reconstructs a path anchored to *this* checkout
+   from just the artifact's filename, fixing every already-committed
+   `metadata.json` without needing to regenerate any of them.
 
-`tests/test_deploy_assets.py` (new) asserts via `git ls-files` — not
-`Path.exists()`, which would have missed this exact bug — that every file the
-dashboard's startup path opens is actually tracked, not just present
-locally. This is the check that would have caught both bugs before the
-deploy; it's in CI now.
+`tests/test_deploy_assets.py` now checks three separate things, because
+tracked-ness (bug 2's fix) turned out not to be sufficient on its own (bug 3):
+every startup-critical file is **tracked** (`git ls-files`); the committed
+feature-store slice **covers enough lookback** (>=2 consecutive tracked
+months per zone, guarding the risk ADR-031 checked and ruled out for today
+but which remains real); and the registry's artifact paths **resolve
+portably** on this checkout, not just exist somewhere. This is the check that
+would have caught all three bugs before the deploy; it's in CI now.
 
 **Carried forward as debt (ADR-030):** once D3 is green, `git rm --cached` the
 committed registry/feature-store slice, revert to reading them live, and
@@ -464,6 +485,17 @@ retrofitted to make a broken builder look clean.
 
 ## The single next action
 
+**Deploy `serving/api.py` to an HF Space and point the live Streamlit app at it** (closes D10). Facts
+established this turn, from the code and a live check, not assumed: no FastAPI deployment exists
+anywhere (checked `requirements.txt`, `docs/RUNBOOK.md` §5, and the repo/docs for any URL — found
+none); the deployed Streamlit app's `API_URL` defaults to `http://localhost:8000` and nothing sets
+`AQI_API_URL`, so every `_api_get()` call fails over to the I10 direct-store fallback — confirmed by
+reading `app/streamlit_app.py`, not the architecture diagram. **Needs Aliza:** create the HF Space
+(`docs/RUNBOOK.md` §5), then set `AQI_API_URL` as a Streamlit Cloud secret pointing at it. Once both
+exist, D10 goes ✅.
+
+Also still outstanding:
+
 **Episode metrics + conformal intervals** (differentiators #1/#2, `docs/RUNBOOK.md` §2.1's session 6
 — superseded in numbering by this session's serving/dashboard work, but not in scope): CSI,
 false-alarm ratio by season, **lead time** (CLAUDE.md §12.3's real primary metric), plus MAPIE
@@ -511,9 +543,12 @@ Still needs Aliza:
   (RUNBOOK §5) — `alerts/telegram.py` is written and tested against a mock,
   just never exercised against a real chat. Re-run
   `python -m aqi.alerts.telegram` once set to send the real test message.
-- **New this session:** create the Streamlit Community Cloud app + the HF
-  Space for the FastAPI service (RUNBOOK §5, session 10) so D9/D10 can move
-  from 🟡 to ✅ — both run correctly locally today, neither has a public URL.
+- **Streamlit Community Cloud app: done** —
+  <https://aqi-pearls-predictor.streamlit.app/> is live, confirmed on the
+  live model path (ADR-031). D9 is ✅. **Still needed:** the HF Space for the
+  FastAPI service (RUNBOOK §5), then set `AQI_API_URL` as a Streamlit Cloud
+  secret pointing at it — D10 stays 🟡 until both exist, see "single next
+  action" above.
 
 ---
 

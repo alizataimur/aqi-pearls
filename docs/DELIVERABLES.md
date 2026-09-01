@@ -189,7 +189,7 @@ benchmark claim.
 
 ## The web application
 
-### D9 — App loads model and features from the store and shows predictions 🟡
+### D9 — App loads model and features from the store and shows predictions ✅
 
 **Brief:** *"Your app loads the model and features from the Feature Store, computes model
 predictions and shows them on a simple and descriptive dashboard."*
@@ -197,9 +197,8 @@ predictions and shows them on a simple and descriptive dashboard."*
 | | |
 |---|---|
 | Lives in | `app/streamlit_app.py`, `src/aqi/serving/inference.py` |
-| Evidence | Deployed to Streamlit Community Cloud (Aliza). `streamlit run app/streamlit_app.py` — loads the registered LightGBM model (`data/model_registry/`) and the feature store live, shows current AQI, a 3-day point forecast, a SHAP explanation and the model card. `pytest tests/test_streamlit_app.py tests/test_inference.py tests/test_deploy_assets.py` — runs every page against real local data with no API server up (the I10 fallback path), plus asserts every startup-critical file is actually tracked by git |
-| Post-deploy fix | The first live deploy hit two Cloud-only bugs (`ModuleNotFoundError: aqi`, then `FileNotFoundError` on the model registry) — both fixed same-session, see `docs/STATE.md`'s "Post-session-6 incident" and `docs/DECISIONS.md` ADR-030. `load_serving_model`/`get_forecast`/`get_explain` now degrade to the static snapshot with a visible banner instead of crashing (I10) when a model artifact is missing or unloadable |
-| Outstanding | Not deployed to a public URL — Streamlit Community Cloud account creation is a session-10-assigned Aliza action (`docs/RUNBOOK.md` §5), unchanged |
+| Evidence | **Live:** <https://aqi-pearls-predictor.streamlit.app/> — open it in a private window; loads the registered LightGBM model (`data/model_registry/`) and the feature store, shows current AQI, a 3-day point forecast, a SHAP explanation and the model card, on the **live model path** (not the fallback banner — verified via a fresh `git clone`, see below). `pytest tests/test_streamlit_app.py tests/test_inference.py tests/test_deploy_assets.py` — runs every page against real local data with no API server up (the I10 fallback path), plus asserts every startup-critical file is tracked, path-portable, and covers enough lookback |
+| Post-deploy fixes | The first live deploy hit three Cloud-only bugs, all fixed same-session — see `docs/STATE.md`'s "Post-session-6 incidents" and `docs/DECISIONS.md` ADR-030/ADR-031: (1) `ModuleNotFoundError: aqi` (`sys.path` fix); (2) `FileNotFoundError` on the model registry, not tracked by git (force-added as a deadline expedient); (3) still `FileNotFoundError` after (2) — `metadata.json`'s `artifact_path` was an absolute, machine-specific path that resolved to nothing on any other checkout. Root-caused by cloning the repo fresh (not copying the working tree) and reading the real exception, per instruction — not by inspecting source and guessing. `LocalModelRegistry.resolve_artifact_path()` now reconstructs a portable path from just the filename; `load_serving_model`/`get_forecast`/`get_explain` degrade to the static snapshot with a visible banner (I10) if an artifact is genuinely missing or unloadable |
 
 **Done distinctively:** the headline states a point forecast plainly and says *why* it isn't a
 probability/interval yet — differentiator #2 (conformal prediction) is cut this session
@@ -209,13 +208,24 @@ from under a day of history, which would be dishonest (I4) — see ADR-027.
 
 ### D10 — Streamlit/Gradio and Flask/FastAPI 🟡
 
-**Brief:** *"Use Streamlit/Gradio and Flask/FastApi for the web app."*
+**Brief:** *"Use Streamlit/Gradio and Flask/FastApi for the web app."* — read literally against the
+architecture doc's intent (§10, §14), this means *both frameworks deployed, and the UI calls the
+API*, not merely that both exist in the repo.
 
 | | |
 |---|---|
 | Lives in | `app/streamlit_app.py` (Streamlit) + `src/aqi/serving/api.py` (FastAPI) |
-| Evidence | Streamlit UI deployed to Streamlit Community Cloud (Aliza) and confirmed working after the post-deploy fix (see D9). `uvicorn aqi.serving.api:app` then `curl localhost:8000/health`; `pytest tests/test_api.py` — 8 endpoint tests against real local data, run locally this session |
-| Outstanding | FastAPI is not deployed publicly yet — an HF Space is still an Aliza-assigned account-creation step (`docs/RUNBOOK.md` §5). The Streamlit deploy currently carries committed model/feature-store artifacts as a deadline expedient (ADR-030) rather than reading a live Feature Store/Model Registry — real debt, tracked, not silent |
+| Evidence | Streamlit: **live** at <https://aqi-pearls-predictor.streamlit.app/>. FastAPI: `uvicorn aqi.serving.api:app` then `curl localhost:8000/health` — runs locally; `pytest tests/test_api.py` (8 tests) passes against real local data. Both frameworks are exercised and tested; only one is deployed |
+| Missing for ✅ | **The FastAPI service is not deployed anywhere reachable.** No HF Space (or any other host) exists for it — checked `requirements.txt` (scoped to the Streamlit process alone; no `fastapi`/`uvicorn` in it, confirming no co-located API process), `docs/RUNBOOK.md` §5 (HF Space creation still listed as a pending Aliza action, not done), and the repo/docs for any deployment URL (none found). **Consequently the deployed Streamlit app does not call an API** — confirmed by reading `app/streamlit_app.py`, not assumed: `API_URL = os.environ.get("AQI_API_URL", "http://localhost:8000")` (line 47), and no `AQI_API_URL` is set anywhere in this repo or its deploy config; on Streamlit Cloud there is no process listening on `localhost:8000`, so every `_api_get()` call fails and every page runs on the I10 direct-store/registry fallback (`get_current`/`get_forecast`/`get_explain`/`get_metrics` all fall through past the failed `_api_get`). The live dashboard today is Streamlit-reads-store-directly, not Streamlit-calls-FastAPI |
+
+**Done distinctively:** the UI falls back to reading the store and calling `serving/inference.py`
+directly when the API is unreachable (I10) — proven, not just claimed: `tests/test_streamlit_app.py`
+runs every page with no API server running at all, so CI exercises the fallback path, not just the
+happy path. That fallback path is, today, also the *only* path the live deployment ever takes — an
+honest reason to keep this row 🟡 rather than a defect in the fallback itself. A `--static` mode
+(`streamlit run app/streamlit_app.py -- --static`) renders the whole dashboard from
+`reports/dashboard_snapshot.json`, a committed artifact, so a sleeping free tier during a live demo
+can't take it down.
 
 **Done distinctively:** the UI falls back to reading the store and calling `serving/inference.py`
 directly when the API is unreachable (I10) — proven, not just claimed: `tests/test_streamlit_app.py`
