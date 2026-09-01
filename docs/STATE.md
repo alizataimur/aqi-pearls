@@ -173,6 +173,60 @@ Leakage test (I1) — <https://github.com/alizataimur/aqi-pearls/actions/runs/33
 
 ---
 
+## Docs-accuracy sweep — CLAUDE.md, README.md and DELIVERABLES.md corrected against I4/I5
+
+Prompted by a direct catch: CLAUDE.md §14 and the D14 table row still described the *originally
+specified* alert design (`P(AQI>200) > 0.6` via Telegram) in language that read as current fact, not
+as a cut, superseded plan. Swept every place in CLAUDE.md, README.md and `docs/DELIVERABLES.md` that
+named a differentiator this build cut — episode detection, conformal prediction, the live AQICN
+scorecard — and rewrote each to lead with what actually ships, with the original design kept visible
+as stated intent rather than deleted (matching CLAUDE.md's own precedent for the cut list, §4).
+**I4/I5 apply to prose describing the system, not only to numbers in a report** — a "Beyond the
+brief" table naming `evaluation/episodes.py`/`evaluation/conformal.py`/`pipelines/
+benchmark_pipeline.py` as if delivered is the same class of dishonesty as a hand-typed metric.
+
+Fixed: CLAUDE.md's D14 table row and §14 Alerts/Streamlit-pages prose; README's "What makes it
+different" (added an explicit "where this actually stands" line); `docs/DELIVERABLES.md`'s D7
+(stale RUNBOOK cross-reference), D10 (removed a literal duplicated paragraph; added the missing
+"3-day forecast is a point forecast, Scorecard page doesn't exist" statement), D14 (states plainly
+that the probability trigger was cut alongside conformal, not just that a substitute shipped), the
+"Beyond the brief" table (3 of 4 rows were cut features listed as delivered — now say so, per row),
+and the stale "not yet deployed" Live URLs table (the dashboard has been live since earlier this
+session).
+
+---
+
+## Workflow git-race check — already mitigated; a real, unrelated failure found instead
+
+Asked to verify `clock-starter`/`feature-pipeline`/`alerts` (all three commit to `main`) have a
+concurrency group and a bounded `pull --rebase` retry before push, since three schedules landing at
+once could produce non-fast-forward push rejections. **Verified by reading the actual workflow files
+and Actions run history, not by reasoning about the cron schedule, per instruction:**
+
+All three already have both — `grep` for `concurrency:`/`group:`/`pull --rebase`/`for attempt` in
+each `.yml` confirms it, and has since `feature-pipeline.yml` (session 3) and `clock-starter.yml`
+(session 0) were first written; `alerts.yml` (this session) was written to match the same pattern
+from the start. Nothing needed adding.
+
+**Real run history shows zero push-race failures in any of the three.** `clock-starter`: 5/5 recent
+runs green. `feature-pipeline`: **5/5 recent runs red — but every one fails at the "Fetch, build
+features, upsert to the feature store" step, before the commit/push step ever runs** (confirmed via
+the Actions jobs API for all 5: `33533700355`, `33504395597`, `33477018852`, `33458265052`,
+`33441703478`, spanning 2026-08-31T21:30Z to 2026-09-01T16:45Z). This directly refutes a git-race
+explanation for feature-pipeline's actual failures — the pipeline is failing before it ever reaches
+git. `alerts.yml` has no scheduled run yet (too new).
+
+**This is a real, separate, currently-active problem — D1's hourly-workflow evidence bar is not
+met** (unchanged from every earlier session's flag, but now confirmed actively red, not just
+"unconfirmed"). Could not root-cause further this turn: the Actions log download API returns 403
+without admin rights (same limitation noted since session 3), and running the live pipeline locally
+to reproduce needs `AQICN_TOKEN`/network access this turn wasn't granted permission to use. **Needs
+Aliza:** open the Actions tab, click the newest failed `feature-pipeline` run, and read the "Fetch,
+build features, upsert to the feature store" step's log directly — the fastest path to the real
+Python exception, and something only repo-admin access can currently do.
+
+---
+
 ## Session 6 — Serving, dashboard, explanations, alerts — CLOSED
 (D9 🟡, D10 🟡, D13 ✅, D14 🟡)
 
@@ -583,7 +637,14 @@ retrofitted to make a broken builder look clean.
 
 ## The single next action
 
-**Deploy `serving/api.py` to an HF Space and point the live Streamlit app at it** (closes D10). Facts
+**Fix `feature-pipeline` — 5/5 recent runs red at the fetch/build step, confirmed via the Actions
+API this turn (see "Workflow git-race check" above), not a race, not unconfirmed.** Per CLAUDE.md's
+own triage rule ("a broken pipeline outranks whatever was planned for the session"), this outranks
+the HF Space item below. Needs Aliza to read the actual failure log (Actions tab → newest failed
+`feature-pipeline` run → "Fetch, build features, upsert to the feature store" step) — the log
+download API is admin-only and this session couldn't get further without it.
+
+Then: **deploy `serving/api.py` to an HF Space and point the live Streamlit app at it** (closes D10). Facts
 established this turn, from the code and a live check, not assumed: no FastAPI deployment exists
 anywhere (checked `requirements.txt`, `docs/RUNBOOK.md` §5, and the repo/docs for any URL — found
 none); the deployed Streamlit app's `API_URL` defaults to `http://localhost:8000` and nothing sets

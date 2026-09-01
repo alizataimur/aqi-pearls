@@ -57,7 +57,7 @@ table is the submission checklist.
 | D11 | EDA to identify trends | `notebooks/01_eda.ipynb` | Rendered notebook in report |
 | D12 | Variety of models — statistical → deep learning | `src/aqi/models/` | Ladder incl. SARIMAX + LSTM |
 | D13 | SHAP or LIME for feature importance | `explain/shap_explain.py` | Explanation panel in dashboard |
-| D14 | Alerts for hazardous AQI levels | `src/aqi/alerts/` | Working Telegram bot |
+| D14 | Alerts for hazardous AQI levels | `src/aqi/alerts/` | Working alert delivery (email default — Telegram is blocked in Pakistan by the PTA, ADR-032; Telegram itself stays supported as a channel option) |
 | D15 | End-to-end system, automated pipeline, interactive dashboard, detailed report | whole repo + `reports/final_report.md` | All of the above |
 
 **No differentiator work starts until its parent deliverable row is green.** A brilliant conformal
@@ -539,7 +539,7 @@ Seven workflows is the ceiling, not a target. Operational notes that will otherw
 `/cities`, `/current`, `/forecast`, `/explain`, `/benchmark`, `/metrics`. Pydantic response models,
 cached reads, CORS. Deploy free on Hugging Face Spaces (Docker).
 
-**Streamlit** (`app/`) — the dashboard, satisfies D9. **Five pages, no more:**
+**Streamlit** (`app/`) — the dashboard, satisfies D9. **Five pages, no more, as specified:**
 
 1. **Now** — current AQI, category, health guidance, station-vs-model comparison
 2. **3-day forecast** — fan chart with 50/90% bands; headline is *"72% chance AQI exceeds 200 on
@@ -547,6 +547,16 @@ cached reads, CORS. Deploy free on Hugging Face Spaces (Docker).
 3. **Why** — SHAP panel + plain-language briefing, English/Urdu toggle
 4. **Scorecard** — live us-vs-AQICN including losses; interval coverage plot
 5. **Model card** — ladder table, metrics, training window
+
+**What actually shipped (session 6) is four pages, not five — a deliberate, documented cut, not a
+shortfall of this list:** Now / 3-day forecast / Why / Model card. Page 2's headline is a **plain
+point forecast**, not "72% chance..." — the conformal-prediction interval/probability layer (§3,
+differentiator #2) that number depends on was cut (`docs/DECISIONS.md` ADR-021). Page 4, the
+Scorecard, is not built at all — the ledger holds under a day of history, and a win/loss comparison
+built from that would violate I4; the Model card page states the ledger's real window instead
+(ADR-027). This will read as real pages again once episode/conformal work (RUNBOOK §2.1 session 6)
+and a matured ledger both exist — until then, `docs/DELIVERABLES.md` D9/D10 describe the four that
+actually ship.
 
 Deploy on Streamlit Community Cloud. The UI reads the API and **falls back to reading the store
 directly** if the API is down (I10).
@@ -569,9 +579,18 @@ templates — roughly twenty) are hand-written once in `conf/i18n_ur.yaml` and r
 speaker; the briefing paragraph is generated **natively in Urdu** from the same driver dict, not
 translated from the English output.
 
-**Alerts (D14)** — Telegram bot triggered on `P(AQI>200) > 0.6` rather than a point forecast
-crossing 200; that is the uncertainty thesis applied to a real decision. Include the plain-language
-reason, deduplicate within an episode, and send an all-clear.
+**Alerts (D14)** — originally specified: triggered on `P(AQI>200) > 0.6` rather than a point forecast
+crossing 200, sent via Telegram; that was the uncertainty thesis applied to a real decision. **What
+shipped instead, and why:** the probability trigger needed the conformal-prediction probability head
+(§3, differentiator #2), which was cut under deadline pressure alongside episode detection
+(`docs/DECISIONS.md` ADR-021) — `alerts/rules.py::evaluate()` fires on the **D+1 point forecast
+crossing 200** (a plain LightGBM number, not a probability), documented as a substitute, not silently
+relabelled (ADR-026). Telegram is not the default channel either: it is blocked in Pakistan by the
+PTA, the market this product is for — a product finding, not a bug (ADR-032). Email
+(`alerts/email_sender.py`) ships as the default; Telegram (`alerts/telegram.py`) stays supported via
+`ALERT_CHANNEL=telegram`, e.g. for the maintainer's own monitoring from outside that block. The
+mechanics that don't depend on the trigger — plain-language reason, deduplicate within an episode,
+send an all-clear — shipped as specified, via a channel-agnostic `Notifier` Protocol.
 
 ---
 

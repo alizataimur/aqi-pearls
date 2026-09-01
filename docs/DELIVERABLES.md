@@ -8,8 +8,8 @@ README is the thirty-second pitch. Three documents, three readers.
 
 | What | Where |
 |---|---|
-| Dashboard | _not yet deployed — session 10_ |
-| API | _not yet deployed — session 10_ |
+| Dashboard | <https://aqi-pearls-predictor.streamlit.app/> — live, on the I10 direct-store fallback path (no API deployed yet, see D10) |
+| API | _not yet deployed_ — no HF Space exists; runs and is tested locally (`uvicorn aqi.serving.api:app`) |
 | Repository | https://github.com/alizataimur/aqi-pearls |
 | Pipeline health | [Actions tab](https://github.com/alizataimur/aqi-pearls/actions) |
 
@@ -162,9 +162,11 @@ be called done — see ADR-024.
 
 **Done distinctively:** the AQI>200 precision/recall/F1 table exists alongside the RMSE/MAE/R² table
 so the report can already say something about hazardous-day detection, not just average error, even
-before differentiator #1's fuller episode metrics (CSI, false-alarm ratio, **lead time**) land — those
-are explicitly cut this session (`docs/DECISIONS.md` ADR-021) and are `evaluation/episodes.py`'s job
-next time RUNBOOK §2.1 session 6 is picked up.
+before differentiator #1's fuller episode metrics (CSI, false-alarm ratio, **lead time**) land.
+`evaluation/episodes.py` does not exist — CLAUDE.md §12.3's actual primary metric (median lead time)
+and the rest of §12.4's episode metrics are cut, not deferred-and-forgotten (`docs/DECISIONS.md`
+ADR-021); RUNBOOK §2.1's session-6 scope (episodes + conformal) has not been picked up as of this
+session either — session 6 built serving/dashboard/explanations/alerts instead.
 
 ---
 
@@ -227,12 +229,11 @@ honest reason to keep this row 🟡 rather than a defect in the fallback itself.
 `reports/dashboard_snapshot.json`, a committed artifact, so a sleeping free tier during a live demo
 can't take it down.
 
-**Done distinctively:** the UI falls back to reading the store and calling `serving/inference.py`
-directly when the API is unreachable (I10) — proven, not just claimed: `tests/test_streamlit_app.py`
-runs every page with no API server running at all, so CI exercises the fallback path, not just the
-happy path. A `--static` mode (`streamlit run app/streamlit_app.py -- --static`) renders the whole
-dashboard from `reports/dashboard_snapshot.json`, a committed artifact, so a sleeping free tier
-during a live demo can't take it down.
+**Also cut from the brief's D9/D10 vision, and shipped as a substitute (CLAUDE.md §14):** the 3-day
+forecast page's headline is a plain point forecast, not *"72% chance AQI exceeds 200 on Friday"* —
+that number needs the conformal-prediction layer (differentiator #2), cut this session (ADR-021).
+The Scorecard page (CLAUDE.md's original 5th page) is not built at all, replaced by the Model card's
+ledger-window statement (ADR-027); four pages ship, not five.
 
 ---
 
@@ -305,15 +306,21 @@ native-speaker review pass yet — flagged in the file itself, in `docs/DECISION
 | Evidence | `pytest tests/test_alerts.py` — 20 tests: the episode/all-clear state machine, both `Notifier` send paths (mocked SMTP/HTTP), and `ALERT_CHANNEL` selection. **To send one real live alert to yourself:** set `ALERT_EMAIL_HOST=smtp.gmail.com`, `ALERT_EMAIL_PORT=587`, `ALERT_EMAIL_USER`/`ALERT_EMAIL_PASSWORD` (a Gmail App Password) and `ALERT_EMAIL_TO` in `.env`, then run `python -m aqi.alerts.email_sender` |
 | Outstanding | No live email has been sent from this session (no real Gmail App Password available here) — the send path is exercised only against a mocked `smtplib.SMTP`. **Needs Aliza:** an App Password (<https://myaccount.google.com/apppasswords>) and the four `ALERT_EMAIL_*` values, locally in `.env` and as GitHub Secrets for `alerts.yml`. Telegram stays supported (`ALERT_CHANNEL=telegram`) but is not the default — see below |
 
+**The trigger CLAUDE.md §14 specifies — `P(AQI>200) > 0.6` — was the intended design and it was cut,
+alongside conformal prediction, under deadline pressure (differentiator #2; `docs/DECISIONS.md`
+ADR-021).** No probability of any kind is computed anywhere in this codebase today. What ships
+instead: `alerts/rules.py::evaluate()` fires on the **D+1 point forecast crossing 200** — a plain
+LightGBM number, not a probability, not a confidence, not an approximation of one — documented as a
+substitute, not silently relabelled (ADR-026). The message says "forecast daily max AQI of {aqi},"
+never "chance" or "probability" (checked directly against CLAUDE.md §20's "letting the model state
+numbers" anti-pattern).
+
 **Done distinctively:** email ships as the default channel because **Telegram is blocked in Pakistan
 by the PTA** — a product finding from the user, not from testing, recorded as such
 (`docs/DECISIONS.md` ADR-032). The alert *rule* is now structurally channel-agnostic, not just
 incidentally so: a `Notifier` Protocol (`alerts/notifier.py`) separates "what triggers an alert and
 what it says" (`evaluate()`, `format_message()` — untouched by this refactor) from "how it's
-delivered" (`EmailNotifier`/`TelegramNotifier`, selected by `ALERT_CHANNEL`). Triggered on the D+1
-point forecast crossing 200, not `P(AQI>200) > 0.6` — CLAUDE.md's real rule needs a probability head
-that's cut this session (ADR-026) — and the message says "forecast daily max AQI of {aqi}," never
-"chance" or "probability" (checked directly against CLAUDE.md §20's anti-pattern). Deduplication is a
+delivered" (`EmailNotifier`/`TelegramNotifier`, selected by `ALERT_CHANNEL`). Deduplication is a
 real state machine (`data/alerts_state.json`, committed after every `alerts.yml` run so it survives
 Actions' ephemeral runners), firing only on the transition into a hazard episode or back out of it.
 
@@ -336,15 +343,18 @@ than to be survived.
 
 ## Beyond the brief
 
-Four things the brief does not ask for, each folded into the row it strengthens rather than parked
-in an appendix:
+Four things the brief does not ask for. **Three of the four are still cut, not delivered — see
+`docs/DECISIONS.md`, ADR-021 (episodes + conformal, cut with the deadline pressure) and the
+differentiator #3 note. I5/I4 apply to this table's own claims, same as to any number in the
+report: a "strengthens" column naming a file that does not exist would be exactly the kind of
+prose CLAUDE.md I5 exists to prevent.**
 
-| | Strengthens | Where |
-|---|---|---|
-| Episode detection and lead time | D7, D14 | `evaluation/episodes.py` |
-| Conformal prediction intervals with per-group coverage | D7, D9 | `evaluation/conformal.py` |
-| Live public benchmark against AQICN, wins and losses | D7, D9 | `pipelines/benchmark_pipeline.py` |
-| Punjab smog physics features | D2, D11 | `features/physics.py` |
+| | Strengthens | Status | Where |
+|---|---|---|---|
+| Episode detection and lead time | D7, D14 | **Not built.** A simple precision/recall/F1 table at AQI>200 shipped instead (D7); the fuller CSI/false-alarm-ratio/lead-time metrics this row describes do not exist | `evaluation/episodes.py` — file does not exist |
+| Conformal prediction intervals with per-group coverage | D7, D9 | **Not built.** No interval, band or probability is computed anywhere in this codebase; D9's 3-day forecast page is a plain point forecast | `evaluation/conformal.py` — file does not exist |
+| Live public benchmark against AQICN, wins and losses | D7, D9 | **Not built.** The ledger holds under a day of history; a comparison built from that would violate I4. D9's Model card states the ledger's real window instead (ADR-027) | `pipelines/benchmark_pipeline.py` — file does not exist |
+| Punjab smog physics features | D2, D11 | **Delivered.** 7 physics features, built and unit-tested (D2); correlation-against-PM2.5-spikes validation (`03_physics_features.ipynb`) is still outstanding (D11) | `src/aqi/features/physics.py` |
 
 ## Deliberately not built
 

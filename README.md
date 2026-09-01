@@ -32,6 +32,12 @@ So this one is built around four things instead:
 4. **Features engineered for Punjab smog physics** — inversion proxy, stagnation index,
    crop-burning window, festival calendar — not a generic global feature set.
 
+**Where this actually stands today:** #4 shipped. #1 (episode detection, lead time) and #2
+(conformal intervals) are cut under this deadline, not built — no probability or interval is
+computed anywhere in this codebase right now (`docs/DECISIONS.md` ADR-021). #3 (the AQICN
+scorecard) isn't built either — the ledger doesn't hold enough history yet for an honest
+comparison. `docs/DELIVERABLES.md` states exactly what ships vs. what's still the target.
+
 ## Quick start
 
 ```bash
