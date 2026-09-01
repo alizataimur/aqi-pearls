@@ -23,10 +23,21 @@ CLAUDE.md §14's requirement that a sleeping free tier can't kill the demo.
 
 from __future__ import annotations
 
-import json
-import os
 import sys
 from pathlib import Path
+
+# Streamlit Cloud installs only requirements.txt, not this repo itself — a
+# local `pip install -e .` is what normally makes `aqi` importable, and Cloud
+# never runs it. Without this, the first `import aqi...` below raises
+# ModuleNotFoundError in deployment even though every local/CI run (editable
+# install) works. Must run before any `aqi.*` import — see per-file E402
+# ignore for this module in pyproject.toml.
+_SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+if str(_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SRC_ROOT))
+
+import json
+import os
 from typing import Any
 
 import requests
