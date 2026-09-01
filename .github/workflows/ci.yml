@@ -41,11 +41,25 @@ jobs:
       # ~180MB. This is what gives CI and a local dev venv *identical* mypy
       # coverage of aqi/models/deep.py's nn.Module subclass, rather than
       # silently exempting it in one environment and not the other.
+      #
+      # shap here is pinned to 0.46.0, NOT pyproject.toml's 0.52.0
+      # (ADR-028) — that bump exists only to work around one Windows/
+      # Python-3.13 dev machine having no MSVC toolchain to build shap
+      # from source. 0.52.0 has no prebuilt wheel at all for cp311
+      # (PyPI's file list starts at cp312-abi3), so on this job's Python
+      # 3.11 it would silently fall back to a slow, fragile sdist build
+      # instead of installing cleanly. 0.46.0 has a real manylinux cp311
+      # wheel. This does not reintroduce the divergence this workflow
+      # exists to close: `shap.*` is in pyproject.toml's
+      # ignore_missing_imports override, so mypy never inspects shap's
+      # internals in either environment either way — only its
+      # presence/absence matters to mypy, and both versions are
+      # genuinely present here and in local dev.
       - name: Install
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev,serve]"
-          pip install scikit-learn==1.6.0 lightgbm==4.5.0 statsmodels==0.14.4 shap==0.52.0 mapie==1.0.1
+          pip install scikit-learn==1.6.0 lightgbm==4.5.0 statsmodels==0.14.4 shap==0.46.0 mapie==1.0.1
           pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Lint
