@@ -4,7 +4,7 @@ Source of truth: `conf/features.yaml`, loaded and expanded by
 `src/aqi/features/spec.py`. This file is the human-readable rendering of
 that expansion — `tests/test_features.py::TestBuilderSchema` asserts the two
 never drift apart (every declared feature is a real builder output column,
-and every real column is declared somewhere). 235 features, 6 targets, one
+and every real column is declared somewhere). 238 features, 6 targets, one
 city-hour per row.
 
 Built by `src/aqi/features/builder.py::build_feature_frame`, consuming the
@@ -40,9 +40,9 @@ metadata-level one).
 | Lag | 70 | 10 base features (6 pollutants + 4 weather) x 7 lags (1, 3, 6, 12, 24, 48, 168h) |
 | Rolling | 84 | 7 base features x 3 windows (6, 24, 72h) x 4 stats (mean, max, min, std) |
 | Derived | 5 | `hourly_aqi_nowcast` (EPA NowCast, §9.2) + AQI change rate at 1h/3h/24h (D2's explicit requirement) + `pm25_pm10_ratio_roll_24h` (combustion vs. dust signature) |
-| Physics | 11 | §10's region-specific table — see below |
+| Physics | 14 | §10's region-specific table plus 3 `*_is_missing` flags (session 4) — see below |
 | Future covariate | 33 | 11 weather variables x 3 horizons (24, 48, 72h), `fc_{variable}_h{h}` |
-| **Total** | **235** | |
+| **Total** | **238** | |
 
 ## Targets — 6, not counted as features
 
@@ -66,6 +66,7 @@ days built from fewer than 18 of 24 hours are `NaN` rather than a biased mean.
 | `inversion_proxy` | `temperature_850hPa - temperature_2m` | `temperature_850hPa` sourced from historical-forecast (ADR-009) |
 | `stagnation_index` | rolling-24h `1/(1+wind) * 1/(1+BLH) * (humidity/100)` | Engineering-judgment composite — validate in `notebooks/03_physics_features.ipynb` (session 4) |
 | `ventilation_index` | `boundary_layer_height * wind_speed_10m` | Standard dispersion metric |
+| `boundary_layer_height_is_missing`, `stagnation_index_is_missing`, `ventilation_index_is_missing` | 1 when the underlying value is `NaN` | Session 4: BLH has a confirmed source gap (2024-01-01 to 2024-06-30, both zones — see `notebooks/03_physics_features.ipynb`). Rolling windows now require a full window (`min_periods=window`, no longer `1`), so a window straddling the gap is genuinely `NaN` rather than a near-empty-window value that looks like a real measurement; these flags carry that fact through whatever later imputation a non-tree model needs |
 | `crop_burning_season`, `crop_burning_day_count` | Oct 15 - Nov 30 flag + day count | From `local_date`, not a formula |
 | `festival_flag` | Eid al-Fitr, Eid al-Adha, Diwali, New Year | `conf/calendar_pk.yaml` — see its header for the moon-sighting caveat |
 | `heating_season` | Dec 1 - Feb 15, spanning New Year | |

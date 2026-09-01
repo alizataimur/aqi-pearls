@@ -136,7 +136,13 @@ def _add_lag_rolling(frame: pd.DataFrame, raw_spec: dict[str, Any]) -> pd.DataFr
     rolling = raw_spec["rolling"]
     for base in rolling["base_features"]:
         for window in rolling["windows_hours"]:
-            roll = frame[base].rolling(window, min_periods=1)
+            # min_periods=window (pandas' own default, made explicit here):
+            # a rolling stat over a window that straddles a source gap (the
+            # BLH gap being the real one in this data, CLAUDE.md STATE.md) is
+            # NaN, not a near-empty-window value that looks like a genuine
+            # window average. See *_is_missing columns (physics.py) for how
+            # models are told this happened rather than just seeing NaN.
+            roll = frame[base].rolling(window, min_periods=window)
             for stat in ("mean", "max", "min", "std"):
                 new_columns[f"{base}_roll_{stat}_{window}h"] = getattr(roll, stat)()
 
@@ -160,7 +166,7 @@ def _add_derived(frame: pd.DataFrame) -> pd.DataFrame:
     out["aqi_change_rate_24h"] = out["hourly_aqi_nowcast"].diff(24)
 
     ratio = frame["pm2_5"] / frame["pm10"].replace(0, np.nan)
-    out["pm25_pm10_ratio_roll_24h"] = ratio.rolling(24, min_periods=1).mean()
+    out["pm25_pm10_ratio_roll_24h"] = ratio.rolling(24, min_periods=24).mean()
     return out
 
 

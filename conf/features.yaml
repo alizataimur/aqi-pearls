@@ -86,6 +86,12 @@ physics:
   - inversion_proxy
   - stagnation_index
   - ventilation_index
+  # Session 4: BLH has a real source gap (2024-01 to 2024-06, both zones).
+  # These flag "dispersion unknown" for a tree, rather than letting a later
+  # imputation of the NaN above look like a real measurement.
+  - boundary_layer_height_is_missing
+  - stagnation_index_is_missing
+  - ventilation_index_is_missing
   - crop_burning_season
   - crop_burning_day_count
   - festival_flag

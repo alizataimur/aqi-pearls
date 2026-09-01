@@ -111,21 +111,25 @@ class TestPhysics:
         assert ventilation_index(frame).tolist() == [2000.0]
 
     def test_stagnation_index_highest_when_still_humid_capped(self) -> None:
+        # 24 constant rows, not 1: stagnation_index's rolling means now require
+        # a full 24h window (min_periods=window, session 4) so a window
+        # straddling a source gap comes out NaN instead of a near-empty-window
+        # value. A single-row frame would just be that NaN case.
         calm = pd.DataFrame(
             {
-                "wind_speed_10m": [0.5],
-                "boundary_layer_height": [50.0],
-                "relative_humidity_2m": [95.0],
+                "wind_speed_10m": [0.5] * 24,
+                "boundary_layer_height": [50.0] * 24,
+                "relative_humidity_2m": [95.0] * 24,
             }
         )
         windy = pd.DataFrame(
             {
-                "wind_speed_10m": [15.0],
-                "boundary_layer_height": [2000.0],
-                "relative_humidity_2m": [20.0],
+                "wind_speed_10m": [15.0] * 24,
+                "boundary_layer_height": [2000.0] * 24,
+                "relative_humidity_2m": [20.0] * 24,
             }
         )
-        assert stagnation_index(calm)[0] > stagnation_index(windy)[0]
+        assert stagnation_index(calm).iloc[-1] > stagnation_index(windy).iloc[-1]
 
     def test_wind_from_sector_is_one_hot(self) -> None:
         frame = pd.DataFrame({"wind_direction_10m": [0.0, 90.0, 180.0, 270.0]})

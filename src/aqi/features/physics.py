@@ -37,9 +37,14 @@ def stagnation_index(frame: pd.DataFrame) -> pd.Series[float]:
     an engineering-judgment composite, not a published index; that is exactly
     what the session-4 correlation check is for.
     """
-    wind_24h = frame["wind_speed_10m"].rolling(24, min_periods=1).mean()
-    blh_24h = frame["boundary_layer_height"].rolling(24, min_periods=1).mean()
-    humidity_24h = frame["relative_humidity_2m"].rolling(24, min_periods=1).mean()
+    # min_periods=24 (full window, explicit): a 24h mean straddling the BLH
+    # source gap must come out NaN, not a value computed from the one or two
+    # real points min_periods=1 would have allowed through looking exactly
+    # like a genuine 24h average. See boundary_layer_height_is_missing /
+    # stagnation_index_is_missing in add_physics_features.
+    wind_24h = frame["wind_speed_10m"].rolling(24, min_periods=24).mean()
+    blh_24h = frame["boundary_layer_height"].rolling(24, min_periods=24).mean()
+    humidity_24h = frame["relative_humidity_2m"].rolling(24, min_periods=24).mean()
 
     low_wind = 1.0 / (_EPSILON + wind_24h)
     low_blh = 1.0 / (_EPSILON + blh_24h)
@@ -89,6 +94,19 @@ def add_physics_features(frame: pd.DataFrame, festival_dates: set[date]) -> pd.D
     out["inversion_proxy"] = inversion_proxy(frame)
     out["stagnation_index"] = stagnation_index(frame)
     out["ventilation_index"] = ventilation_index(frame)
+
+    # boundary_layer_height has a real, confirmed source gap (2024-01-01 to
+    # 2024-06-30, both zones — see notebooks/03_physics_features.ipynb). With
+    # min_periods now requiring a full window (builder.py, stagnation_index
+    # above), stagnation_index/ventilation_index go genuinely NaN across that
+    # gap rather than being silently filled from a near-empty window. These
+    # flags let a tree learn "dispersion unknown" instead of being fed
+    # whatever a later imputation step fills in as if it were a measurement.
+    blh_missing = frame["boundary_layer_height"].isna()
+    out["boundary_layer_height_is_missing"] = blh_missing.astype(int)
+    out["stagnation_index_is_missing"] = out["stagnation_index"].isna().astype(int)
+    out["ventilation_index_is_missing"] = out["ventilation_index"].isna().astype(int)
+
     out = pd.concat([out, wind_from_sector(frame)], axis=1)
     out = pd.concat([out, calendar_flags(frame, festival_dates)], axis=1)
     return out

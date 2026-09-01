@@ -58,6 +58,16 @@ dev = [
   "mypy==1.14.0",
   "pandas-stubs==2.2.3.241126",
 ]
+# Session 4 — EDA / physics-validation / divergence notebooks. statsmodels is
+# already pinned under `models` (session 5 needs it for SARIMAX); repeated
+# here isn't a version drift risk since both pins are identical.
+notebooks = [
+  "matplotlib==3.9.4",
+  "statsmodels==0.14.4",
+  "nbformat==5.10.4",
+  "nbclient==0.10.1",
+  "ipykernel==6.29.5",
+]
 
 [build-system]
 requires = ["setuptools>=68"]

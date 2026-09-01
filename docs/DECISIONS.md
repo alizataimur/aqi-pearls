@@ -305,3 +305,93 @@ volume this isn't). If Aliza supplies `HF_TOKEN` and creates the dataset repo,
 switching the root to a synced checkout of it is the only change needed;
 nothing about `ParquetFeatureStore`'s interface changes. Flagged to Aliza in
 this session's five-line report as a "needs me" item, same as Hopsworks.
+
+---
+
+## ADR-015 — Rolling windows require a full window; BLH-derived features get explicit `_is_missing` flags
+
+**Status:** accepted · 2026-08-31 (session 4)
+
+`builder.py`'s `_add_lag_rolling`, its `pm25_pm10_ratio_roll_24h`, and
+`physics.py`'s `stagnation_index` all called `.rolling(window, min_periods=1)`.
+`boundary_layer_height` has a confirmed source gap — **2024-01-01 through
+2024-06-30, both zones, 4,368 hours, identical in both** (checked directly
+against the stored data, not assumed) — and a second, independent gap in the
+historical-forecast archive's BLH series before 2024-08-29/30/31 depending on
+horizon. With `min_periods=1`, a 72h window straddling the observed gap could
+be computed from a single real point and still come out looking like a
+genuine 72-hour average.
+
+**Chosen:** `min_periods=window` (pandas' own default, made explicit rather
+than left implicit) everywhere a rolling stat is computed on hourly data.
+Verified the fix's actual effect against the real store: for the 24h window,
+46 additional hours go from a partial-window value to `NaN` (23 at the very
+start of the 4-year history, where no full window can exist yet regardless of
+any gap, plus 23 trailing the BLH gap, where the window still reaches back
+into it); for the 72h window the same arithmetic gives 71 + 71 = **142**
+additional hours — the number this session's brief flagged before any code
+was touched, now confirmed rather than assumed. Also added
+`boundary_layer_height_is_missing`, `stagnation_index_is_missing`, and
+`ventilation_index_is_missing` (declared in `conf/features.yaml`'s `physics`
+list) so a tree model sees an explicit "dispersion unknown" signal instead of
+just a `NaN` that a later imputation step (required for Ridge/SARIMAX/LSTM,
+none of which take `NaN` directly) could silently turn into a value
+indistinguishable from a real measurement.
+
+**Rejected:** leaving `min_periods=1` and relying on downstream models to
+notice a value was suspect (nothing downstream had any way to know); a single
+blanket `dispersion_unknown` flag covering all three BLH-derived quantities
+(collapses information a tree could use — `ventilation_index` and
+`boundary_layer_height` go missing on the same 4,368 hours, but
+`stagnation_index` goes missing on 4,414 because its own 24h window
+straddles the gap edges too, and that distinction is itself informative);
+imputing BLH from a regional average or interpolation (CLAUDE.md I10 is about
+external dependencies degrading gracefully, not about inventing physical
+measurements that were never made).
+
+**Consequence:** the committed feature store (`data/feature_store/`) was
+regenerated in place — `scripts/rebuild_derived_features.py` recomputes only
+the affected columns from the base hourly series already in the store,
+without re-fetching Open-Meteo, and rewrites via the store's normal
+idempotent upsert. Row counts are unchanged (35,808 rows/zone); the feature
+count for D2's evidence rises from 235 to 238 (`docs/feature_spec.md`
+updated). `tests/test_features.py`'s
+`test_stagnation_index_highest_when_still_humid_capped` had to grow its
+fixture from 1 row to 24 constant rows — a single-row frame is now, correctly,
+the missing-window case rather than a valid stagnation reading.
+
+---
+
+## ADR-016 — Held-out test window is the 2025-26 smog season
+
+**Status:** accepted · 2026-08-31 (session 4)
+
+CLAUDE.md I2 requires the final held-out test period to contain a complete
+smog season (Oct-Feb). `boundary_layer_height` — the input `stagnation_index`
+and `ventilation_index` depend on — has two independent gaps (ADR-015): the
+observed series is null 2024-01 to 2024-06, and the historical-forecast
+series is null before late August 2024. A smog season is only usable for
+evaluating the full feature set, physics features included, if both series
+are fully populated across it.
+
+Checked directly against the rebuilt store: 2022-Oct-2023-Feb has no
+forecast-BLH at all (predates the archive's coverage here); 2023-Oct-2024-Feb
+loses January-February to the observed-BLH gap; 2024-Oct-2025-Feb is the
+first fully-populated season on both series, but it is not the *most recent*
+complete one — 2025-Oct-2026-Feb also has both series fully populated and the
+backfill runs through 2026-08-29, past the end of that season.
+
+**Chosen:** the 2025-26 smog season (Oct 2025 - Feb 2026) is the final
+held-out test window for the model ladder (session 5). It is both the most
+recent complete season and free of the BLH gap on either series, so no
+physics feature the ladder is evaluated on is silently degraded across the
+window that decides the primary metric (§12.3).
+
+**Rejected:** 2024-25 as the held-out window — it satisfies I2's completeness
+requirement too, but using it as the *final* test period would leave a full
+additional complete season (2025-26) sitting unused after it, which is a
+worse walk-forward setup than simply using the more recent one.
+
+**Consequence:** session 5's `evaluation/splits.py` walk-forward folds must
+end with 2025-26 as the final test chunk. Documented here so the ladder
+doesn't have to re-derive this from the raw BLH gap data a second time.
