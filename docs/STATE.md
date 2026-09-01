@@ -227,6 +227,48 @@ Python exception, and something only repo-admin access can currently do.
 
 ---
 
+## Both red workflows root-caused from Aliza's pasted logs and fixed — not yet confirmed by a live run
+
+Aliza supplied the actual failing-step logs for both. Root-caused from those logs (and, for
+feature-pipeline, a live probe of the real API), not from reading the source and guessing:
+
+- **`alerts`** (`9689a07`, both runs): `ModuleNotFoundError: No module named 'joblib'` at
+  `aqi/serving/inference.py:22`, reached via `alerts.rules`'s top-level import. `alerts.yml`'s
+  install step was bare `pip install -e .` — `joblib` is not a base dependency in `pyproject.toml`,
+  it only arrives transitively through the `models` extra, which this workflow never installed.
+  Fixed: install `joblib`, `scikit-learn==1.6.0`, `lightgbm==4.5.0`, `statsmodels==0.14.4` alongside
+  the base install. `scikit-learn`/`lightgbm`/`statsmodels` are not optional here even though the
+  import error only named `joblib` — `champion.json`'s current champion is `sarimax`, and
+  `joblib.load()` needs the model's class importable to unpickle it, not merely present at import
+  time.
+
+- **`feature-pipeline`** (5 runs, `1c28b08a` most recent): `HTTP Error 400: Bad Request` from
+  `archive-api.open-meteo.com` for both zones. `feature_pipeline.py` computes one shared fetch
+  window, `end_date = now + TAIL_CONTEXT_DAYS(4 days)`, and `pipelines/common.py` passed that same
+  future-dated `end_date` to all three sources — but the ERA5 *archive* endpoint is actuals-only.
+  Confirmed live by curling `archive-api.open-meteo.com` directly: `end_date` one day past today
+  (`2026-09-02` when today was `2026-09-01`) returns
+  `{"error":true,"reason":"Parameter 'end_date' is out of allowed range from 1940-01-01 to
+  2026-09-01"}`; `end_date` = today returns 200 with data. CAMS and the historical-forecast archive
+  both legitimately need the future-dated window (they're forecast sources); ERA5 does not and must
+  not receive it. Fixed: `common.fetch_zone_frame` now clamps the ERA5 leg's `end_date` to today,
+  independently of what the caller passed for the other two sources.
+
+  Added `tests/test_pipelines_common.py`, exercising `fetch_zone_frame` itself with the three
+  sources mocked at the call boundary — `test_feature_pipeline.py` mocks `fetch_zone_frame` as a
+  whole and so never touched this code path, which is exactly why the bug shipped past it.
+
+**Verification status, stated plainly rather than assumed:** `python -m ruff check .`,
+`ruff format --check .`, `mypy src/`, and `pytest -q` (full suite) are all green locally, and the fix
+commit (`83a738a`) is pushed to `main`. **Neither workflow has run against `83a738a` yet** — no
+`workflow_dispatch` token was available this turn (unauthenticated dispatch attempts both returned
+`401`), so confirmation depends on the next scheduled trigger: `feature-pipeline` runs hourly at
+`:22`, `alerts` every 6 hours at `:37`. As of this push (`2026-09-01T19:01:34Z`) neither has fired
+against the new commit. **This is fixed-and-pushed, not yet fixed-and-verified-live** — do not
+upgrade that distinction until a run against `83a738a` (or later) is actually read and shows green.
+
+---
+
 ## Session 6 — Serving, dashboard, explanations, alerts — CLOSED
 (D9 🟡, D10 🟡, D13 ✅, D14 🟡)
 
@@ -637,12 +679,12 @@ retrofitted to make a broken builder look clean.
 
 ## The single next action
 
-**Fix `feature-pipeline` — 5/5 recent runs red at the fetch/build step, confirmed via the Actions
-API this turn (see "Workflow git-race check" above), not a race, not unconfirmed.** Per CLAUDE.md's
-own triage rule ("a broken pipeline outranks whatever was planned for the session"), this outranks
-the HF Space item below. Needs Aliza to read the actual failure log (Actions tab → newest failed
-`feature-pipeline` run → "Fetch, build features, upsert to the feature store" step) — the log
-download API is admin-only and this session couldn't get further without it.
+**Confirm `feature-pipeline` and `alerts` are actually green against `83a738a`** (see "Both red
+workflows root-caused..." above) — both fixes are pushed and locally verified, but neither workflow
+has run against the new commit yet (no dispatch token this turn; both are schedule-only until
+Aliza opens the Actions tab and clicks "Run workflow", or the next scheduled trigger fires:
+`feature-pipeline` hourly at `:22`, `alerts` every 6h at `:37`). Read the actual run, not the diff —
+same standard as every other fix this session.
 
 Then: **deploy `serving/api.py` to an HF Space and point the live Streamlit app at it** (closes D10). Facts
 established this turn, from the code and a live check, not assumed: no FastAPI deployment exists
