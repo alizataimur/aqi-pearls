@@ -1,0 +1,43 @@
+{
+  "model_name": "lstm",
+  "horizon_hours": 48,
+  "family": "torch",
+  "training_window": {
+    "start": "2022-08-01T00:00:00+00:00",
+    "train_end": "2025-09-27T19:00:00+00:00"
+  },
+  "feature_group_version": 1,
+  "git_sha": "f8aff34e31d394c517747e683257cf4c7a470690",
+  "feature_columns": [
+    "pm2_5",
+    "pm10",
+    "o3",
+    "no2",
+    "so2",
+    "co",
+    "temperature_2m",
+    "relative_humidity_2m",
+    "wind_speed_10m",
+    "boundary_layer_height"
+  ],
+  "metrics": {
+    "regression": {
+      "rmse": 27.51707063305275,
+      "mae": 21.48820599773207,
+      "r2": 0.6705093269761088,
+      "n": 7248
+    },
+    "episode_at_200": {
+      "precision": 0.6788461538461539,
+      "recall": 0.6841085271317829,
+      "f1": 0.6814671814671814,
+      "n_true_positive_days": 1032,
+      "n_predicted_positive_days": 1040,
+      "n": 7248
+    },
+    "n_train": 45832
+  },
+  "champion": false,
+  "registered_at": "2026-09-01T04:28:15.845321+00:00",
+  "artifact_path": "C:\\Users\\xesha\\Documents\\aqi-pearls\\data\\model_registry\\lstm__h48\\model.pt"
+}

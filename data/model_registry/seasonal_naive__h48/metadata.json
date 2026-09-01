@@ -1,0 +1,34 @@
+{
+  "model_name": "seasonal_naive",
+  "horizon_hours": 48,
+  "family": "baseline",
+  "training_window": {
+    "start": "2022-08-01T00:00:00+00:00",
+    "train_end": "2025-09-27T19:00:00+00:00"
+  },
+  "feature_group_version": 1,
+  "git_sha": "f8aff34e31d394c517747e683257cf4c7a470690",
+  "feature_columns": [
+    "daily_aqi (reconstructed from target_daily_aqi_h24, models.dataset.daily_aqi_by_date)"
+  ],
+  "metrics": {
+    "regression": {
+      "rmse": 38.816984403038,
+      "mae": 27.996688741721854,
+      "r2": 0.34433452730258785,
+      "n": 7248
+    },
+    "episode_at_200": {
+      "precision": 0.5116279069767442,
+      "recall": 0.5116279069767442,
+      "f1": 0.5116279069767442,
+      "n_true_positive_days": 1032,
+      "n_predicted_positive_days": 1032,
+      "n": 7248
+    },
+    "n_train": 2304
+  },
+  "champion": false,
+  "registered_at": "2026-09-01T04:28:15.633130+00:00",
+  "artifact_path": "C:\\Users\\xesha\\Documents\\aqi-pearls\\data\\model_registry\\seasonal_naive__h48\\model.joblib"
+}

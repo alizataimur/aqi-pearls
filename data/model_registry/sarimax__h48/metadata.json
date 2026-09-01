@@ -1,0 +1,37 @@
+{
+  "model_name": "sarimax",
+  "horizon_hours": 48,
+  "family": "statsmodels",
+  "training_window": {
+    "start": "2022-08-01T00:00:00+00:00",
+    "train_end": "2025-09-27T19:00:00+00:00"
+  },
+  "feature_group_version": 1,
+  "git_sha": "f8aff34e31d394c517747e683257cf4c7a470690",
+  "feature_columns": [
+    "fc_temperature_2m_h48",
+    "fc_boundary_layer_height_h48",
+    "fc_wind_speed_10m_h48",
+    "endog lag terms (AR order 2, daily-aggregated target_daily_aqi_h48)"
+  ],
+  "metrics": {
+    "regression": {
+      "rmse": 19.45116945275813,
+      "mae": 14.13859815676892,
+      "r2": 0.8353619692521974,
+      "n": 7248
+    },
+    "episode_at_200": {
+      "precision": 0.8529411764705882,
+      "recall": 0.6744186046511628,
+      "f1": 0.7532467532467532,
+      "n_true_positive_days": 1032,
+      "n_predicted_positive_days": 816,
+      "n": 7248
+    },
+    "n_train": 2
+  },
+  "champion": true,
+  "registered_at": "2026-09-01T04:28:15.646035+00:00",
+  "artifact_path": "C:\\Users\\xesha\\Documents\\aqi-pearls\\data\\model_registry\\sarimax__h48\\model.joblib"
+}
