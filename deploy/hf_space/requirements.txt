@@ -1,0 +1,39 @@
+# Hugging Face Space (Gradio SDK) requirements for deploy/hf_space/app.py.
+#
+# The `aqi` package itself is NOT pip-installed here — app.py shallow-clones
+# the repo at startup and sys.path-inserts its src/, the same mechanism
+# app/streamlit_app.py uses for Streamlit Cloud (see app.py's docstring for
+# why `pip install git+...` was rejected). This file only needs the actual
+# runtime dependencies of aqi.serving.api's import chain, traced statically
+# against src/aqi/serving/{api,inference,schemas}.py, src/aqi/explain/
+# shap_explain.py, src/aqi/models/{dataset,registry,gbdt}.py, src/aqi/store/,
+# src/aqi/config.py — plus gradio/uvicorn to run the Space itself.
+#
+# Versions match pyproject.toml's pins exactly, with one deliberate
+# exception: shap is pinned to 0.46.0 here, not pyproject.toml's local-dev
+# 0.52.0 (ADR-028, worked around a Windows/no-MSVC machine). 0.46.0 has a
+# real manylinux wheel for cp311 and is the same pin ci.yml already proved
+# green on Linux; 0.52.0's oldest wheel is cp312-abi3, and HF Spaces'
+# default Python is not guaranteed to be >=3.12 (see docs/RUNBOOK.md's Space
+# section for the runtime.txt pin that makes this deterministic instead of
+# assumed).
+gradio==5.9.1
+uvicorn==0.34.0
+fastapi==0.115.6
+pandas==2.2.3
+numpy==2.1.3
+pyyaml==6.0.2
+pydantic==2.10.4
+pydantic-settings==2.7.0
+pyarrow==18.1.0
+joblib==1.4.2
+scikit-learn==1.6.0
+lightgbm==4.5.0
+shap==0.46.0
+
+# ZeroGPU hardware tier: this service is CPU-only and never uses
+# @spaces.GPU, but `spaces` is included defensively in case the Space's
+# build/runtime harness expects it importable on this hardware tier even
+# when unused. Worth confirming against current HF ZeroGPU docs before
+# upload — flagged as uncertain in docs/RUNBOOK.md rather than assumed.
+spaces

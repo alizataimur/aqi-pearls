@@ -308,6 +308,64 @@ Everything else is unattended. These are your queue:
 
 ---
 
+### 5.1 Deploying the FastAPI service to a Hugging Face Space (D10)
+
+`deploy/hf_space/` in this repo holds everything the Space needs, version-controlled. Render was
+rejected — it requires a credit card on this account — in favour of a Hugging Face Space on the
+**Gradio SDK**, which is what CLAUDE.md §14 specified from the start, minus Docker.
+
+**Files to upload to the Space** (via the Space's "Files" tab, or `git push` to the Space's own git
+remote — either works, the Space just needs these two files at its root):
+
+- `deploy/hf_space/app.py` → upload as the Space's `app.py`
+- `deploy/hf_space/requirements.txt` → upload as the Space's `requirements.txt`
+- `deploy/hf_space/runtime.txt` → upload as the Space's `runtime.txt` (pins Python 3.11, see below)
+
+Nothing else. `app.py` shallow-clones this repo into `/tmp/aqi-pearls` at container startup and
+`sys.path`-inserts its `src/` — the same mechanism `app/streamlit_app.py` already uses for Streamlit
+Community Cloud — so the Space gets the code *and* the committed `data/feature_store/` +
+`data/model_registry/` slices from one clone, without `pip install`-ing the `aqi` package at all.
+See `app.py`'s own docstring for why `pip install git+https://github.com/alizataimur/aqi-pearls.git`
+was tried and rejected (`ParquetFeatureStore`/`LocalModelRegistry`'s default root is bound to
+`__file__`'s location at class-definition time — a site-packages install can never resolve it to
+real data, and there's no override hook without editing source that's out of scope here).
+
+**Space settings:**
+
+- **SDK:** Gradio
+- **Hardware:** ZeroGPU on this account (Render/CPU Basic both require a paid tier). The service is
+  CPU-only — no `@spaces.GPU` anywhere in `app.py` — so no GPU is ever requested; ZeroGPU is being
+  used purely as the free tier available, not because anything here needs a GPU.
+- **Python version:** pinned via `deploy/hf_space/runtime.txt` (`python-3.11`) rather than trusting
+  whatever HF defaults to. `requirements.txt`'s `shap==0.46.0` pin has a real wheel for cp311
+  (proven — it's the same pin `ci.yml` runs green on); local verification here used cp312 (no cp311
+  interpreter available on this dev machine) since that's the closest available match, not cp311
+  itself — an unpinned default Python version on the Space is exactly the kind of local-vs-deployed
+  divergence that has caused every Streamlit Cloud incident this project has hit
+  (`reports/final_report.md` §10.1), so don't skip uploading `runtime.txt`.
+
+**One open question, not resolved here:** whether a ZeroGPU-tier Space requires the `spaces` package
+importable at container startup even when nothing in the app uses `@spaces.GPU`. `requirements.txt`
+includes it defensively (harmless if unused) but this hasn't been confirmed against current HF docs
+— check before assuming the build will succeed on the first try.
+
+**Verification before trusting a deploy:** `deploy/hf_space/app.py` was run locally (Python 3.12,
+`pip install -r deploy/hf_space/requirements.txt` into a clean venv, then `python app.py`) and every
+endpoint hit for real: `/health`, `/cities`, `/current`, `/forecast`, `/explain`, `/metrics` all
+returned real data; `/` (a small landing route added in `app.py`, not `api.py`) and `/ui` (the
+Gradio Blocks page, mounted per HF's documented `gr.mount_gradio_app` pattern — `/`, not `/ui`, was
+the original plan, moved to avoid conflicting with the Space's expected root behaviour) and `/docs`
+all resolved correctly. `/benchmark`, named in CLAUDE.md §14's original seven-endpoint list, does not
+exist — `api.py` only ever implemented six; the ledger is too short for an honest scorecard (§8 of
+the report). Do not assume a seventh endpoint exists because the design doc names one.
+
+**After the Space is live:** point the Streamlit dashboard at it by setting `AQI_API_URL` (Streamlit
+Cloud → app settings → secrets) to the Space's public URL. Until that's done, the dashboard keeps
+reading the feature store directly (I10) — which is why the API being unreachable has produced no
+visible symptom so far.
+
+---
+
 ## 6. Failure modes, and what to do
 
 **"It rewrote something that was working."** Commit after every session, and read `git diff` before

@@ -23,14 +23,17 @@ dependencies = [
 
 [project.optional-dependencies]
 # Stage 2 — data + store. Not installed in CI (ci.yml) — none of it is
-# needed to run or test ParquetFeatureStore, and `hopsworks` is heavy and
-# unverified against a live project (no Hopsworks account exists yet, see
-# docs/RUNBOOK.md §5). Install locally with `.[data]` once that account
-# exists; re-check the pin against PyPI at that point.
+# needed to run or test ParquetFeatureStore. `hopsworks` bumped from the
+# original 4.1.5 pin: that release requires Python <3.13, and this dev venv
+# runs 3.13 (same class of problem as the torch/shap pins, ADR-019/028).
+# 4.8.5 is the newest 4.x release (avoids the 5.x major line's unverified
+# API surface), ships requires_python <3.14,>=3.9, and is a pure `py3-none`
+# wheel — no native build. Now connected and verified against a live
+# project (ADR-034).
 data = [
   "pandera==0.22.1",
   "duckdb==1.1.3",
-  "hopsworks==4.1.5",
+  "hopsworks==4.8.5",
 ]
 # Stage 3 — models and evaluation
 models = [
