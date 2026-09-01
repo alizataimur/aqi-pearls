@@ -22,11 +22,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
 
+      # `pip install -e ".[dev]"` alone left mypy checking src/ against a
+      # dependency set with no fastapi/torch/scikit-learn/etc. installed —
+      # locally green (they're all installed on every dev machine that's
+      # touched this repo) and CI-red on the exact same commit, four times
+      # in one day. `serving/api.py` (fastapi) and `models/{gbdt,forest,
+      # deep,...}.py` (models extra) are real deliverables (D10, D6/D12);
+      # mypy should genuinely check them, not skip them because the module
+      # is missing.
+      #
+      # torch is installed separately, pinned to the exact version
+      # pyproject.toml declares (ADR-019), from PyTorch's CPU-only wheel
+      # index — the default PyPI index's torch wheel bundles CUDA and is
+      # ~800MB; the CPU-only build mypy actually needs real types from is
+      # ~180MB. This is what gives CI and a local dev venv *identical* mypy
+      # coverage of aqi/models/deep.py's nn.Module subclass, rather than
+      # silently exempting it in one environment and not the other.
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,serve]"
+          pip install scikit-learn==1.6.0 lightgbm==4.5.0 statsmodels==0.14.4 shap==0.52.0 mapie==1.0.1
+          pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Lint
         run: ruff check . && ruff format --check .
