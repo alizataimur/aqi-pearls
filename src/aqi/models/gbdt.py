@@ -40,3 +40,10 @@ class LightGBMModel:
             self._model.predict(x), dtype=np.float64
         )
         return pd.Series(predictions, index=x.index)
+
+    @property
+    def sklearn_model(self) -> LGBMRegressor:
+        """The raw fitted estimator — `explain/shap_explain.py`'s
+        `shap.TreeExplainer` needs the real LightGBM booster, not this
+        wrapper (CLAUDE.md D13)."""
+        return self._model

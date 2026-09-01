@@ -42,7 +42,12 @@ models = [
   # - bumped to the oldest 3.13-compatible release at session-5 time; see
   # docs/DECISIONS.md.
   "torch==2.7.1",
-  "shap==0.46.0",
+  # 0.46.0 (the original pin) has no prebuilt wheel for cp313 and needs an
+  # MSVC C++ toolchain to build its native extension from source, which this
+  # environment doesn't have — same class of problem as the torch pin above.
+  # 0.52.0 ships a cp312-abi3 wheel (forward-compatible with 3.13). See
+  # docs/DECISIONS.md.
+  "shap==0.52.0",
   # I0 version trap (CLAUDE.md §12.5): the time-series class was
   # MapieTimeSeriesRegressor in 0.x and is mapie.regression.TimeSeriesRegressor
   # in 1.x. This pin selects the 1.x import. Do not copy a 0.x tutorial.
@@ -61,6 +66,7 @@ dev = [
   "ruff==0.8.4",
   "mypy==1.14.0",
   "pandas-stubs==2.2.3.241126",
+  "httpx==0.28.1",  # FastAPI's TestClient (tests/test_api.py) needs it explicitly
 ]
 # Session 4 — EDA / physics-validation / divergence notebooks. statsmodels is
 # already pinned under `models` (session 5 needs it for SARIMAX); repeated

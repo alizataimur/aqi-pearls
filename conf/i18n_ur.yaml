@@ -1,0 +1,85 @@
+# Hand-written Urdu strings (CLAUDE.md §14) — never machine-translated from
+# English at request time. Category names already live in
+# src/aqi/aqi_scale.py::_CATEGORIES (category_for) and are NOT duplicated
+# here; this file adds the strings aqi_scale.py doesn't own: health guidance
+# per category and the two alert templates.
+#
+# CAVEAT (be honest about this, not silent): these translations were written
+# by this session without a native Urdu speaker's review, which CLAUDE.md §14
+# calls for explicitly ("read by a native speaker"). They are standard EPA
+# AQI guidance sentences translated as literally and plainly as this session
+# could manage — good enough to ship and demo, not yet verified against that
+# bar. Flagged in docs/DECISIONS.md and docs/STATE.md; a native-speaker pass
+# is outstanding work, not a silently-skipped step.
+
+health_guidance:
+  Good:
+    en: "Air quality is satisfactory. Enjoy your usual outdoor activities."
+    ur: "ہوا کا معیار تسلی بخش ہے۔ اپنی معمول کی بیرونی سرگرمیاں جاری رکھیں۔"
+  Moderate:
+    en: "Air quality is acceptable. Unusually sensitive people should consider reducing prolonged outdoor exertion."
+    ur: "ہوا کا معیار قابلِ قبول ہے۔ حساس افراد طویل بیرونی مشقت کم کرنے پر غور کریں۔"
+  "Unhealthy for Sensitive Groups":
+    en: "Sensitive groups (children, the elderly, people with asthma or heart disease) should limit prolonged outdoor exertion."
+    ur: "حساس گروہ (بچے، بزرگ، دمہ یا دل کے مریض) طویل بیرونی مشقت محدود کریں۔"
+  Unhealthy:
+    en: "Everyone should reduce prolonged outdoor exertion; sensitive groups should avoid it."
+    ur: "ہر کوئی طویل بیرونی مشقت کم کرے؛ حساس گروہ اس سے مکمل پرہیز کریں۔"
+  "Very Unhealthy":
+    en: "Health alert: avoid outdoor exertion. Sensitive groups should stay indoors."
+    ur: "صحت کی وارننگ: بیرونی مشقت سے پرہیز کریں۔ حساس گروہ گھر کے اندر رہیں۔"
+  Hazardous:
+    en: "Health emergency: everyone should avoid all outdoor exertion and stay indoors."
+    ur: "صحت کی ایمرجنسی: سب افراد ہر قسم کی بیرونی سرگرمی سے مکمل پرہیز کریں اور گھر کے اندر رہیں۔"
+
+alerts:
+  episode:
+    en: "AQI alert for {city_en}: forecast daily max AQI of {aqi} ({category_en}) on {date}. {guidance_en}"
+    ur: "{city_ur} کے لیے AQI الرٹ: {date} کو یومیہ زیادہ سے زیادہ AQI کی پیش گوئی {aqi} ({category_ur}) ہے۔ {guidance_ur}"
+  all_clear:
+    en: "All-clear for {city_en}: forecast daily max AQI has dropped back below 200."
+    ur: "{city_ur} کے لیے آل کلیئر: یومیہ زیادہ سے زیادہ AQI کی پیش گوئی 200 سے نیچے آ گئی ہے۔"
+
+# A handful of feature base-names the SHAP briefing (explain/shap_explain.py)
+# may name as a top driver — translated so the Urdu sentence doesn't fall
+# back to a raw English column name mid-sentence. Not exhaustive (CLAUDE.md
+# "roughly twenty" strings); any feature not listed here falls back to its
+# English name in the Urdu sentence, which is a visible degrade, not a
+# silent mistranslation.
+feature_labels:
+  pm2_5:
+    en: "PM2.5"
+    ur: "پی ایم 2.5"
+  pm10:
+    en: "PM10"
+    ur: "پی ایم 10"
+  wind_speed_10m:
+    en: "wind speed"
+    ur: "ہوا کی رفتار"
+  boundary_layer_height:
+    en: "boundary-layer height"
+    ur: "باؤنڈری لیئر کی اونچائی"
+  temperature_2m:
+    en: "temperature"
+    ur: "درجہ حرارت"
+  relative_humidity_2m:
+    en: "humidity"
+    ur: "نمی"
+  inversion_proxy:
+    en: "temperature inversion"
+    ur: "درجہ حرارت الٹاؤ (انورشن)"
+  stagnation_index:
+    en: "air stagnation"
+    ur: "ہوا کا جمود"
+  ventilation_index:
+    en: "dispersion capacity"
+    ur: "ہوا کی بازی کی صلاحیت"
+  hourly_aqi_nowcast:
+    en: "current AQI trend"
+    ur: "موجودہ AQI رجحان"
+  crop_burning_season:
+    en: "crop-burning season"
+    ur: "فصلوں کو جلانے کا موسم"
+  heating_season:
+    en: "winter heating season"
+    ur: "سردیوں کا ہیٹنگ سیزن"
