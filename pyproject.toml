@@ -37,7 +37,11 @@ models = [
   "scikit-learn==1.6.0",
   "lightgbm==4.5.0",
   "statsmodels==0.14.4",
-  "torch==2.5.1",
+  # 2.5.1 (the original pin) has no wheel for the Python 3.13 interpreter
+  # this repo's venv actually runs (pyproject says >=3.11, the venv is 3.13)
+  # - bumped to the oldest 3.13-compatible release at session-5 time; see
+  # docs/DECISIONS.md.
+  "torch==2.7.1",
   "shap==0.46.0",
   # I0 version trap (CLAUDE.md §12.5): the time-series class was
   # MapieTimeSeriesRegressor in 0.x and is mapie.regression.TimeSeriesRegressor
@@ -93,7 +97,17 @@ mypy_path = "src"
 exclude = ["notebooks/", "^build/"]
 
 [[tool.mypy.overrides]]
-module = ["yaml.*", "shap.*", "mapie.*", "lightgbm.*", "statsmodels.*", "hopsworks.*"]
+module = [
+  "yaml.*",
+  "shap.*",
+  "mapie.*",
+  "lightgbm.*",
+  "statsmodels.*",
+  "hopsworks.*",
+  "joblib.*",
+  "sklearn.*",
+  "torch.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

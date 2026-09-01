@@ -430,3 +430,245 @@ marked gap.
 (`ledger.py`, the null-rate coverage report) was deliberately built *before*
 the cutoff specifically so the deferred notebooks are a straightforward write
 next time, not a re-design — see `docs/STATE.md`'s "single next action".
+
+---
+
+## ADR-018 — Telegram as the alert transport, WhatsApp as the intended one
+
+**Status:** accepted · 2026-09-01
+
+WhatsApp is where this project's users actually are; in Pakistan it dominates
+in a way Telegram does not. It is the correct channel for a public-health
+alert aimed at Rawalpindi residents.
+
+**Chosen:** ship Telegram. It needs only a bot token, sends immediately, costs
+nothing, and can be demonstrated live in seconds.
+
+**Rejected for now:** WhatsApp. Business-initiated messages go through the
+Business API, which requires a verified Meta Business account, a dedicated
+number, and pre-approved message templates — days of setup, against a project
+window measured in hours.
+
+**Consequence:** the alert *rule* — fire on `P(AQI>200) > 0.6`, deduplicate
+within an episode, send an all-clear — lives in `alerts/rules.py` and is
+independent of transport. Senders are pluggable. Adding WhatsApp is a second
+sender, not a redesign. The report states plainly that the shipped channel is
+not the right one for the audience, and why.
+
+---
+
+## ADR-019 — `torch` pin bumped from 2.5.1 to 2.7.1 (this venv runs Python 3.13)
+
+**Status:** accepted · 2026-09-01 (session 5)
+
+`pyproject.toml` declares `requires-python = ">=3.11"`, but the actual `.venv`
+in this environment resolved to Python 3.13. `torch==2.5.1` (the original
+pin) has no published wheel for cp313 — `pip install -e ".[models]"` failed
+outright before any session-5 code ran.
+
+**Chosen:** bump the pin to `torch==2.7.1`, the oldest 3.13-compatible release
+available from PyPI at session time. `scikit-learn==1.6.0` and
+`lightgbm==4.5.0` both installed clean against 3.13 and were left alone.
+
+**Rejected:** pinning the venv to 3.11 instead. Nothing in this repo's own
+code requires 3.13; the mismatch is purely an artifact of how this machine's
+`.venv` was created, and reprovisioning it was out of scope for a
+session with a hard deadline the next day. Flagging here so whoever next
+touches environment setup knows the `requires-python` floor and the actual
+interpreter have drifted apart.
+
+**Consequence:** `mapie==1.0.1` (already pinned under the same `models`
+extra, for the differentiator-2 conformal work) also has no cp313 wheel
+(`pandas-stubs`-style bound: `<3.12,>=3.9`) — not fixed here since conformal
+prediction is cut this session (ADR-021 below), but the next session that
+picks it up will hit the same install failure `torch` did and needs its own
+pin bump or a 3.11 environment.
+
+---
+
+## ADR-020 — Model Registry: `LocalModelRegistry`, not Hopsworks, not MLflow
+
+**Status:** accepted · 2026-09-01 (session 5)
+
+CLAUDE.md §11.2 names Hopsworks Model Registry primary, MLflow + Hugging Face
+Hub fallback. `HOPSWORKS_API_KEY`/`HOPSWORKS_PROJECT` are still empty (the
+same gap `HopsworksFeatureStore` has carried since session 3 — see
+`docs/STATE.md`), and the session brief is explicit: register locally, do not
+block on Hopsworks.
+
+**Chosen:** `src/aqi/models/registry.py`'s `LocalModelRegistry` — one
+directory per `(model_name, horizon_hours)` under `data/model_registry/`
+(gitignored, like `data/feature_store/` — ADR-006/ADR-014's precedent:
+regenerable via `python -m aqi.pipelines.training_pipeline`, not committed),
+holding `metadata.json` (training window, feature-group version, git SHA,
+feature columns actually used, per-horizon metrics, champion flag) plus a
+`joblib`/`torch.save` artifact where one exists. `champion.json` records the
+promotion decision.
+
+**Rejected:** installing MLflow as the fallback the brief also offered
+("Hopsworks if credentials exist, MLflow/local otherwise"). MLflow pulls in
+a tracking-server dependency surface (Flask, SQLAlchemy, alembic, gunicorn)
+this project has no other use for, and a plain local registry satisfies
+D5's actual Evidence bar — "registered champion with metrics attached" — with
+zero new dependencies and something that's already been exercised against
+real data, not just imported.
+
+**Consequence:** `HopsworksModelRegistry` doesn't exist yet, deliberately — an
+unexercised stub against an account nobody has created is worse than an
+honest gap (CLAUDE.md's prime directive, §1). D5 stays real and green on the
+local backend; the Hopsworks half is the same class of outstanding item as
+D3's, and needs the same thing: Aliza creates the project, then it gets
+built and tested against something live.
+
+---
+
+## ADR-021 — Champion selection this session: mean RMSE, not median lead time
+
+**Status:** accepted · 2026-09-01 (session 5)
+
+CLAUDE.md §12.3 names **median lead time on AQI>200 episodes at D+1** as the
+one primary metric that decides promotion. Computing lead time requires the
+episode-detection machinery (`evaluation/episodes.py`) and a populated
+forecast ledger — both differentiator #1/#3 work the session brief explicitly
+cuts ("SKIP ENTIRELY: ... lead-time analysis").
+
+**Chosen:** champion = the ladder entry (baseline or ML, per I6) with the
+lowest **mean RMSE across h24/h48/h72** on the 2025-26 smog-season test
+window. Recorded as `mean_rmse_across_horizons` and
+`champion.selection_rule`/`selection_value` in `reports/metrics/ladder.json`,
+and as the `selection_rule` string in `champion.json` — so nobody reading the
+registry later mistakes this for CLAUDE.md's real primary metric.
+
+**Rejected:** RMSE at a single horizon (e.g. D+1 only) — CLAUDE.md §12.4 is
+explicit that collapsing per-horizon detail into one number is an
+anti-pattern; a horizon-averaged RMSE at least uses all three rather than
+privileging one arbitrarily.
+
+**Consequence:** whichever session builds `evaluation/episodes.py` and wires
+the ledger to ≥30 days (§11.2's ledger-gating threshold) should re-run
+promotion under the real §12.3 rule and may get a different champion — this
+session's registration is not assumed final. The result itself is worth
+keeping regardless: **SARIMAX won at every horizon** (mean RMSE 19.50 vs.
+LightGBM's 27.45 and the LSTM's 26.59), which is exactly the kind of
+"the fancy model didn't win" finding CLAUDE.md §12.1 asks the report to state
+plainly rather than bury.
+
+---
+
+## ADR-022 — Baseline definitions operationalized from the stored `target_daily_aqi_h24` column, not a raw CAMS refetch
+
+**Status:** accepted · 2026-09-01 (session 5)
+
+CLAUDE.md §12.1 defines the baselines in one line each ("persistence: today's
+max"; "seasonal naive: same day last week"; "climatology: day-of-year
+historical mean") without specifying how "today's max" is obtained at an
+arbitrary intra-day issue time `T`, and D5's brief is explicit that training
+reads *only* from the Feature Store, never a raw source.
+
+**Chosen:** reconstruct a `date -> daily_aqi` series per zone
+(`models.dataset.daily_aqi_by_date`) from the already-stored
+`target_daily_aqi_h24` column — which *is* "the daily_aqi of `local_date + 1
+day`," since `builder._add_targets` computes it once per calendar day. Then:
+persistence looks up `daily_aqi(local_date(T) - 1 day)` — the most recently
+*completed* day, since the in-progress day isn't finalized at an arbitrary
+`T`; seasonal-naive looks up `daily_aqi(target_date - 7 days)`; climatology
+fits a train-only day-of-year mean of the same series. All three read only
+already-realized values strictly before `T` (never a peek at `T`'s own
+in-progress day), so none of this violates I1 despite reusing a
+horizon-24 target column as an input.
+
+**Rejected:** an EPA-NowCast-based "current conditions" proxy
+(`hourly_aqi_nowcast`, already a stored feature) as the persistence signal.
+Simpler to wire (no day-shifting), but it's on the wrong scale — NowCast is a
+trailing-12h *real-time* estimate, the targets are 24h-mean-based *daily*
+AQI — and would have made persistence's baseline number a mix of forecast
+skill and definition mismatch, exactly what CLAUDE.md I8 says never to
+conflate.
+
+**Consequence:** all three baselines are directly comparable to every ML
+rung on identical (city_id, time_utc) test rows (`HorizonMatrix.test_*`) —
+see ADR-023 below for why LSTM's own row count differs slightly.
+
+---
+
+## ADR-023 — SARIMAX runs at daily granularity with a positional index, not hourly with a DatetimeIndex
+
+**Status:** accepted · 2026-09-01 (session 5)
+
+Two implementation obstacles, both worth recording so the next session
+doesn't waste time rediscovering them:
+
+1. This environment's `scipy` (1.18.1) is newer than `statsmodels==0.14.4`
+   was tested against — the default `lbfgs` optimizer path calls
+   `scipy.optimize.fmin_l_bfgs_b(..., disp=...)` internally, and that
+   parameter no longer exists in this scipy. **Chosen:** `model.fit(disp=False,
+   method="powell")`, which avoids that code path entirely.
+2. `SARIMAXResults.append(...)` requires its new data's index to literally
+   extend the fitted model's inferred date frequency — and the real BLH /
+   forecast-archive gaps (`docs/STATE.md`) make the daily series
+   non-contiguous in calendar terms, so a `DatetimeIndex` triggers `"Given
+   endog does not have an index that extends..."`. **Chosen:** a plain
+   `RangeIndex` for both fit and append. With no `seasonal_order` component,
+   the AR/MA terms already mean "the previous *available* day," not "the
+   previous calendar day," so this changes nothing about what the model
+   represents.
+
+Also decided in the same pass: SARIMAX runs once per **zone**, at **daily**
+granularity — endog = `target_daily_aqi_h{horizon}` (constant within a
+calendar day, ADR-022), exog = the horizon's own admitted `fc_*_h{horizon}`
+future covariates (ADR-011), averaged over the issuing day. Averaging within
+a day is leakage-safe: every hourly value going into the mean was itself
+issued at or before its own hour (I1); this rung just treats "issued that
+day" as the coarser unit its daily granularity actually operates at.
+
+**Rejected:** hourly SARIMAX. Same information (the target is constant
+within a calendar day) at ~24x the compute for a state-space model with
+weekly-seasonal terms — a clear case for CLAUDE.md §4's "keep it small."
+
+**Consequence:** SARIMAX turned out to be the strongest rung at every horizon
+(ADR-021) — worth investigating further in a later session: whether it's the
+daily aggregation smoothing hourly noise out of the exogenous forecasts, or
+whether the ML rungs are simply under-tuned at this session's fixed,
+un-searched hyperparameters (CLAUDE.md §4 cuts hyperparameter search, so this
+session can't distinguish the two).
+
+---
+
+## ADR-024 — LSTM sequence built from existing lag columns; target normalization added after a first failed run
+
+**Status:** accepted · 2026-09-01 (session 5)
+
+Rung 5 needed a genuinely different (sequential) input shape from the
+flat-feature-vector rungs above it, without re-deriving a raw hourly window
+(extra engineering surface, extra chance of a leakage bug).
+
+**Chosen:** for 10 base variables (`conf/features.yaml`'s `lags.base_features`),
+stack the already-computed `_lag_{168,48,24,12,6,3,1}h` columns plus the
+current-hour value into an 8-step sequence per sample — every column used has
+`min_lag_hours = None` (ADR-011: historical, safe at every horizon), so this
+cannot leak regardless of the target horizon. A 1-layer LSTM (hidden size 16)
+reads the sequence; the zone one-hot is concatenated to the final hidden
+state before a linear head, matching the "give every pooled model a zone
+signal" treatment `dataset._with_zone_dummies` gives Ridge/RF/LightGBM.
+
+**A real bug caught before it shipped:** the first end-to-end run scored
+RMSE 136 on a target whose std is 44 — worse than predicting the mean.
+Root cause: raw AQI (0-500 scale) fed directly as the regression target, with
+no output normalization, so a freshly-initialized net started too far from
+the loss surface for Adam at a small fixed LR to recover in 8 epochs. Fixed
+by fitting target mean/std on the **train split only** (the same rule
+`evaluation/scaling.py` states and `RidgeModel`'s `StandardScaler` enforces)
+and un-scaling at predict time. Post-fix: RMSE 21.4, R² 0.80 at h24 —
+competitive with LightGBM. Caught by actually running the pipeline against
+real data before considering the rung done, not by unit tests alone (the
+unit-test surface for this rung is deliberately thin — CLAUDE.md "keep
+models small" — so this class of numerical bug needed a real run to surface).
+
+**Consequence:** `LSTMModel`'s train/test row counts differ slightly from
+`HorizonMatrix`'s (the other pooled rungs) — it only requires 10 base
+variables' lag columns to be non-null, not the full ~215-column admitted
+feature set, so it retains more rows through `dropna`. Both counts are
+reported per-rung in `ladder.json` (`n`/`n_train`), so the difference is
+visible rather than hidden — read as "the split's temporal boundary is
+identical, the row-level footprint isn't," not literally bit-identical row
+sets across every rung.

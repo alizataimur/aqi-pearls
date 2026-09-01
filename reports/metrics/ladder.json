@@ -1,0 +1,459 @@
+{
+  "generated_at": "2026-09-01T04:31:45.997035+00:00",
+  "git_sha": "f8aff34e31d394c517747e683257cf4c7a470690",
+  "feature_group": "aqi_features",
+  "feature_group_version": 1,
+  "split": {
+    "train_end": "2025-09-27T19:00:00+00:00",
+    "test_start": "2025-09-30T19:00:00+00:00",
+    "test_end": "2026-02-28T18:00:00+00:00",
+    "purge_gap_hours": 72,
+    "test_window_description": "2025-26 smog season, local calendar (ADR-016)"
+  },
+  "horizons_hours": [
+    24,
+    48,
+    72
+  ],
+  "primary_metric_note": "Session 5 selects the champion by lowest mean RMSE across horizons, not CLAUDE.md \u00a712.3's median lead time \u2014 that metric needs the episode/ledger machinery cut this session (docs/DECISIONS.md).",
+  "models": {
+    "persistence": {
+      "h24": {
+        "regression": {
+          "rmse": 27.579865964549512,
+          "mae": 19.357615894039736,
+          "r2": 0.6682611919799257,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.6976744186046512,
+          "recall": 0.6976744186046512,
+          "f1": 0.6976744186046512,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1032,
+          "n": 7248
+        },
+        "n_train": 2304
+      },
+      "h48": {
+        "regression": {
+          "rmse": 31.690556806854573,
+          "mae": 22.927152317880793,
+          "r2": 0.5629828626272482,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.627906976744186,
+          "recall": 0.627906976744186,
+          "f1": 0.627906976744186,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1032,
+          "n": 7248
+        },
+        "n_train": 2304
+      },
+      "h72": {
+        "regression": {
+          "rmse": 34.81716673334791,
+          "mae": 25.49337748344371,
+          "r2": 0.4768528144374019,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.5581395348837209,
+          "recall": 0.5581395348837209,
+          "f1": 0.5581395348837209,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1032,
+          "n": 7248
+        },
+        "n_train": 2304
+      }
+    },
+    "seasonal_naive": {
+      "h24": {
+        "regression": {
+          "rmse": 38.79953573832983,
+          "mae": 27.960264900662253,
+          "r2": 0.343454187919943,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.5116279069767442,
+          "recall": 0.5116279069767442,
+          "f1": 0.5116279069767442,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1032,
+          "n": 7248
+        },
+        "n_train": 2304
+      },
+      "h48": {
+        "regression": {
+          "rmse": 38.816984403038,
+          "mae": 27.996688741721854,
+          "r2": 0.34433452730258785,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.5116279069767442,
+          "recall": 0.5116279069767442,
+          "f1": 0.5116279069767442,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1032,
+          "n": 7248
+        },
+        "n_train": 2304
+      },
+      "h72": {
+        "regression": {
+          "rmse": 39.13654141811953,
+          "mae": 28.304635761589402,
+          "r2": 0.3389992905049847,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.5116279069767442,
+          "recall": 0.5116279069767442,
+          "f1": 0.5116279069767442,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1032,
+          "n": 7248
+        },
+        "n_train": 2304
+      }
+    },
+    "climatology": {
+      "h24": {
+        "regression": {
+          "rmse": 35.50858802317488,
+          "mae": 26.162251655629138,
+          "r2": 0.4501062497245242,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.6153846153846154,
+          "recall": 0.5581395348837209,
+          "f1": 0.5853658536585366,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 936,
+          "n": 7248
+        },
+        "n_train": 2304
+      },
+      "h48": {
+        "regression": {
+          "rmse": 35.51273232896516,
+          "mae": 26.188741721854306,
+          "r2": 0.4512090965123715,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.6153846153846154,
+          "recall": 0.5581395348837209,
+          "f1": 0.5853658536585366,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 936,
+          "n": 7248
+        },
+        "n_train": 2304
+      },
+      "h72": {
+        "regression": {
+          "rmse": 35.48118717179487,
+          "mae": 26.141280353200884,
+          "r2": 0.4567079828231869,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.6153846153846154,
+          "recall": 0.5581395348837209,
+          "f1": 0.5853658536585366,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 936,
+          "n": 7248
+        },
+        "n_train": 2304
+      }
+    },
+    "sarimax": {
+      "h24": {
+        "regression": {
+          "rmse": 19.44192691617109,
+          "mae": 14.117544584045485,
+          "r2": 0.8351493780801279,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.8529411764705882,
+          "recall": 0.6744186046511628,
+          "f1": 0.7532467532467532,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 816,
+          "n": 7248
+        },
+        "n_train": 2
+      },
+      "h48": {
+        "regression": {
+          "rmse": 19.45116945275813,
+          "mae": 14.13859815676892,
+          "r2": 0.8353619692521974,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.8529411764705882,
+          "recall": 0.6744186046511628,
+          "f1": 0.7532467532467532,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 816,
+          "n": 7248
+        },
+        "n_train": 2
+      },
+      "h72": {
+        "regression": {
+          "rmse": 19.617466200734693,
+          "mae": 14.274621974470065,
+          "r2": 0.8339178857743543,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.8529411764705882,
+          "recall": 0.6744186046511628,
+          "f1": 0.7532467532467532,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 816,
+          "n": 7248
+        },
+        "n_train": 2
+      }
+    },
+    "ridge": {
+      "h24": {
+        "regression": {
+          "rmse": 23.174044423804393,
+          "mae": 17.955669986101654,
+          "r2": 0.7657844918341717,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.7144026186579379,
+          "recall": 0.8459302325581395,
+          "f1": 0.774622892635315,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1222,
+          "n": 7248
+        },
+        "n_train": 18854
+      },
+      "h48": {
+        "regression": {
+          "rmse": 27.637586256752684,
+          "mae": 21.794780503650443,
+          "r2": 0.6676168875802462,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.6373147340889277,
+          "recall": 0.7083333333333334,
+          "f1": 0.6709499770536944,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1147,
+          "n": 7248
+        },
+        "n_train": 18902
+      },
+      "h72": {
+        "regression": {
+          "rmse": 30.456987117011305,
+          "mae": 23.683701552873764,
+          "r2": 0.599676654038328,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.6307541625857003,
+          "recall": 0.624031007751938,
+          "f1": 0.6273745737944472,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1021,
+          "n": 7248
+        },
+        "n_train": 18950
+      }
+    },
+    "random_forest": {
+      "h24": {
+        "regression": {
+          "rmse": 23.62760802863121,
+          "mae": 16.933183622944085,
+          "r2": 0.7565266157613861,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.7583955223880597,
+          "recall": 0.7877906976744186,
+          "f1": 0.7728136882129277,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1072,
+          "n": 7248
+        },
+        "n_train": 18854
+      },
+      "h48": {
+        "regression": {
+          "rmse": 31.384125660951515,
+          "mae": 23.14722157070285,
+          "r2": 0.5713934573487867,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.6895261845386533,
+          "recall": 0.5358527131782945,
+          "f1": 0.6030534351145037,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 802,
+          "n": 7248
+        },
+        "n_train": 18902
+      },
+      "h72": {
+        "regression": {
+          "rmse": 37.21869910059182,
+          "mae": 27.834308427870095,
+          "r2": 0.402195173365287,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.6087431693989072,
+          "recall": 0.5397286821705426,
+          "f1": 0.5721623009758603,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 915,
+          "n": 7248
+        },
+        "n_train": 18950
+      }
+    },
+    "lightgbm": {
+      "h24": {
+        "regression": {
+          "rmse": 21.084459882467144,
+          "mae": 16.0596390001775,
+          "r2": 0.8061182469533796,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.7578051087984863,
+          "recall": 0.7761627906976745,
+          "f1": 0.7668741024413596,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1057,
+          "n": 7248
+        },
+        "n_train": 18854
+      },
+      "h48": {
+        "regression": {
+          "rmse": 29.305765769924058,
+          "mae": 21.49764989892993,
+          "r2": 0.6262812595667331,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.7105882352941176,
+          "recall": 0.5852713178294574,
+          "f1": 0.6418703506907545,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 850,
+          "n": 7248
+        },
+        "n_train": 18902
+      },
+      "h72": {
+        "regression": {
+          "rmse": 31.955735584243403,
+          "mae": 23.434241152153014,
+          "r2": 0.5593084973031557,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.5835866261398176,
+          "recall": 0.5581395348837209,
+          "f1": 0.5705794947994056,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 987,
+          "n": 7248
+        },
+        "n_train": 18950
+      }
+    },
+    "lstm": {
+      "h24": {
+        "regression": {
+          "rmse": 21.405599498880118,
+          "mae": 16.418829517121285,
+          "r2": 0.8001672024266915,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.753690036900369,
+          "recall": 0.7916666666666666,
+          "f1": 0.772211720226843,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1084,
+          "n": 7248
+        },
+        "n_train": 45832
+      },
+      "h48": {
+        "regression": {
+          "rmse": 27.51707063305275,
+          "mae": 21.48820599773207,
+          "r2": 0.6705093269761088,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.6788461538461539,
+          "recall": 0.6841085271317829,
+          "f1": 0.6814671814671814,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1040,
+          "n": 7248
+        },
+        "n_train": 45832
+      },
+      "h72": {
+        "regression": {
+          "rmse": 30.85803332881321,
+          "mae": 24.394425467428288,
+          "r2": 0.589064627324363,
+          "n": 7248
+        },
+        "episode_at_200": {
+          "precision": 0.5771186440677966,
+          "recall": 0.6598837209302325,
+          "f1": 0.6157323688969257,
+          "n_true_positive_days": 1032,
+          "n_predicted_positive_days": 1180,
+          "n": 7248
+        },
+        "n_train": 45832
+      }
+    }
+  },
+  "mean_rmse_across_horizons": {
+    "persistence": 31.362529834917336,
+    "seasonal_naive": 38.91768718649578,
+    "climatology": 35.500835841311634,
+    "sarimax": 19.50352085655464,
+    "ridge": 27.08953926585613,
+    "random_forest": 30.743477596724848,
+    "lightgbm": 27.44865374554487,
+    "lstm": 26.593567820248694
+  },
+  "champion": {
+    "model_name": "sarimax",
+    "mean_rmse": 19.50352085655464
+  }
+}

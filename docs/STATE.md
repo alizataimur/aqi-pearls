@@ -3,8 +3,8 @@
 > Read CLAUDE.md first for rules and contracts. This file is *position only*.
 > Update it at the end of every session (CLAUDE.md §19).
 
-**Stage:** 2 — Make the data real, in progress / Session 4 (EDA + physics validation +
-divergence) — PARTIAL, cut short under a hard deadline
+**Stage:** 3 — Make the model honest, in progress / Session 5 (the ladder) — CLOSED
+(D5 ✅, D6 ✅, D7 ✅, D12 ✅)
 **Updated:** 2026-09-01
 **Repo status:** public, pushed — https://github.com/alizataimur/aqi-pearls
 **Held-out test window (I2):** the **2025-26 smog season** (Oct 2025 – Feb 2026) — see ADR-016. It
@@ -12,6 +12,85 @@ is the most recent complete season with both `boundary_layer_height` series (obs
 historical-forecast) fully populated; earlier seasons either predate the forecast-BLH archive's
 coverage here or fall inside the observed-BLH gap (ADR-015). Session 5's `evaluation/splits.py`
 walk-forward folds must end with this season as the final test chunk.
+
+---
+
+## Session 5 — The ladder: baselines through LSTM, Model Registry — CLOSED
+(D5 ✅, D6 ✅, D7 ✅, D12 ✅)
+
+Goal (`docs/RUNBOOK.md` §2.1, tightened by an explicit deadline-day session brief): daily max US AQI
+at D+1/D+2/D+3, both zones, from the feature store only. Persistence/seasonal-naive/climatology
+baselines, then Ridge, Random Forest, SARIMAX, LightGBM, a small PyTorch LSTM. One split (train =
+everything before the 2025-26 smog season minus the 72h purge gap; test = the season itself —
+ADR-016). RMSE/MAE/R² per horizon plus a simple precision/recall/F1 table at AQI>200, to
+`reports/metrics/ladder.json`. Champion registered locally with metrics attached. Conformal
+intervals, Mondrian coverage, lead-time analysis, hyperparameter search and the AQICN benchmark were
+explicitly cut for this session (session brief) — differentiator work for a later session, not a
+design gap.
+
+| Item | Status | Notes |
+|---|---|---|
+| `src/aqi/features/spec.py::admitted_columns` | done | Vectorized twin of `builder.feature_vector`'s per-horizon admission check — bulk-selects a horizon's admitted columns from a full frame instead of looping per row. Proven identical to `feature_vector` by a new equivalence test in `tests/test_no_leakage.py` (`TestAdmittedColumnsVectorized`) — the ladder's training matrix can't silently admit a column no single-row lookup would ever have allowed |
+| `src/aqi/evaluation/metrics.py` | done, new | `regression_metrics` (RMSE/MAE/R², NaN-pair-safe) and `episode_precision_recall_f1` (AQI>200) — dependency-free, used identically by every rung |
+| `src/aqi/models/dataset.py` | done, new | `load_ladder_frame` (both zones, full history, via `get_store()` — I10), `daily_aqi_by_date` (reconstructs a `date -> daily_aqi` series from the stored `target_daily_aqi_h24` column — no raw refetch, ADR-022), `smog_season_split` (the one Split, ADR-016), `build_horizon_matrix` (admitted-columns + zone one-hot + dropna, shared by Ridge/RF/LightGBM), `build_sequence_matrix` (the LSTM's lag-ordered sequence input) |
+| `src/aqi/models/baselines.py` | done, new | Persistence, seasonal-naive, climatology (train-only fit) — ADR-022 |
+| `src/aqi/models/{linear,forest,gbdt}.py` | done, new | Ridge (sklearn `Pipeline` + `StandardScaler`), Random Forest, LightGBM — small fixed hyperparameters (CLAUDE.md §4) |
+| `src/aqi/models/sarimax.py` | done, new | Daily-granularity SARIMAX with leakage-safe `fc_*_h{h}` exogenous covariates, `method="powell"` (this env's scipy is newer than statsmodels==0.14.4 was tested against — ADR-023), positional `RangeIndex` (real BLH/forecast-archive gaps make the daily series non-contiguous — ADR-023) |
+| `src/aqi/models/deep.py` | done, new | Small 1-layer PyTorch LSTM (hidden=16, 8 epochs) over an 8-step lag-ordered sequence; train-only target normalization added after a first run scored RMSE 136 without it (ADR-024) |
+| `src/aqi/models/registry.py` | done, new | `LocalModelRegistry` — Hopsworks is a credential gap, same as D3's (ADR-020); one entry per `(model_name, horizon_hours)` under `data/model_registry/` (gitignored, regenerable) |
+| `src/aqi/pipelines/training_pipeline.py` | done, new, **ran live** | Orchestrates the full ladder; `python -m aqi.pipelines.training_pipeline` |
+| `reports/metrics/ladder.json` | done, **generated live** | See results table below |
+| `pyproject.toml` | fixed | `torch` pin bumped 2.5.1 → 2.7.1 — this venv runs Python 3.13, and 2.5.1 has no cp313 wheel (ADR-019) |
+| `tests/{test_metrics,test_dataset,test_baselines,test_registry}.py` | done, new | Synthetic-fixture unit tests, no network, no real feature store |
+| `tests/test_no_leakage.py` | extended | `TestAdmittedColumnsVectorized` — new class, same file (I1: never a new file for a leakage check, always the one CLAUDE.md names) |
+| `docs/DECISIONS.md` | done | ADR-019 through ADR-024 |
+| `docs/DELIVERABLES.md` | done | D5, D6, D7, D12 rows: ⬜ → ✅ |
+
+**The ladder result, live from `reports/metrics/ladder.json`** (mean RMSE across h24/h48/h72; full
+per-horizon RMSE/MAE/R² and precision/recall/F1 at AQI>200 are in the JSON, not reproduced here per
+I5):
+
+| Rung | Mean RMSE |
+|---|---|
+| **sarimax (champion)** | **19.50** |
+| lstm | 26.59 |
+| ridge | 27.09 |
+| lightgbm | 27.45 |
+| random_forest | 30.74 |
+| persistence | 31.36 |
+| climatology | 35.50 |
+| seasonal_naive | 38.92 |
+
+**The genuine finding worth carrying into the report:** SARIMAX — the "statistical" rung, not the
+GBDT or the LSTM — won at every horizon, degrading only 19.44 → 19.62 RMSE from D+1 to D+3 while
+every other rung degrades noticeably more (e.g. LightGBM 21.08 → 31.96). CLAUDE.md I6/§12.1 call this
+out explicitly: a ladder where the simple model sometimes wins reads as mature, and this one does.
+See ADR-021 and ADR-023 for the two live hypotheses (daily aggregation smoothing vs. under-tuned ML
+rungs at a fixed, un-searched hyperparameter grid) — distinguishing them needs the hyperparameter
+search CLAUDE.md §4 cuts, so it's future work, not resolved here.
+
+**A real bug caught before it shipped:** the LSTM's first live run scored RMSE 136 (worse than
+predicting the mean) from an untrained-net-vs-raw-0-500-scale mismatch. Fixed with train-only target
+normalization (ADR-024), verified by re-running against real data, not assumed fixed from the code
+change alone.
+
+### What's still outstanding after this session
+
+- **D5's Hopsworks half** — same credential gap as D3, unchanged. `LocalModelRegistry` is real and
+  exercised; `HopsworksModelRegistry` doesn't exist yet (ADR-020), deliberately, per the prime
+  directive (an untestable stub is worse than an honest gap).
+- **Champion selection used mean RMSE, not CLAUDE.md §12.3's median lead time** — that metric needs
+  `evaluation/episodes.py` and a populated ledger, both differentiator work cut this session
+  (ADR-021). Re-run promotion under the real rule once that machinery exists; the champion may change.
+- **Rung 0d (AQICN's own forecast) is not in the ladder** — the ledger is still too sparse
+  (`docs/STATE.md`'s divergence-notebook note, carried from session 4) and the benchmark pipeline is
+  differentiator #3, cut this session.
+- Session 4's leftover items (`02_divergence.ipynb`, `03_physics_features.ipynb`) are still not
+  started — untouched this session, still next in line per session 4's own handoff.
+- D1, D3 stay 🟡 — unchanged, still pending a green `feature-pipeline` Actions run and a live
+  Hopsworks project respectively.
+- The instructor rubric-confirmation email and Hopsworks/HF account creation (RUNBOOK §5) — still
+  outstanding, every session keeps flagging them.
 
 ---
 
@@ -291,21 +370,27 @@ retrofitted to make a broken builder look clean.
 
 ## The single next action
 
-**Finish session 4** (`docs/RUNBOOK.md` §2.1): `02_divergence.ipynb` and
-`03_physics_features.ipynb`. Both were cut this session under a hard
-deadline, not because of a blocker — `src/aqi/store/ledger.py` (reads the
-ledger, excludes quarantine) and the null-rate-aware
-`reports/metrics/coverage.json` were built specifically so these two
-notebooks would be a straightforward write, not a re-design, when picked
-back up. `02_divergence.ipynb` must print the ledger's window and row count
-at the top and explicitly not draw a conclusion from however few rows exist
-at that point (CLAUDE.md I4) — re-run it again before the report is
-finalized (session 12), once the ledger has real history. `03_physics_features.ipynb`
-answers whether `inversion_proxy` alone carries the dispersion signal
-`stagnation_index`/`ventilation_index` were meant to add, by correlating each
-against PM2.5 spikes; `01_eda.ipynb`'s unconditional correlation numbers
-(r=0.25 capital, r=0.50 Lahore for `inversion_proxy`) are a head start, not a
-substitute.
+**Session 6** (`docs/RUNBOOK.md` §2.1): episode metrics beyond the simple precision/recall/F1 table
+session 5 shipped — CSI, false-alarm ratio by season, **lead time** — plus conformal prediction
+intervals (MAPIE, per-horizon, Mondrian-grouped by season and AQI band). Both were explicitly cut
+from session 5 under the deadline (`docs/DECISIONS.md` ADR-021). Once lead time exists, re-run
+champion promotion under CLAUDE.md §12.3's real primary metric — session 5's champion (SARIMAX, mean
+RMSE 19.50) was selected by mean RMSE instead and may not hold under the real rule. **Before
+installing `mapie`, note ADR-019**: `mapie==1.0.1`'s pin has no wheel for this venv's Python 3.13
+either (same class of problem `torch` hit) — needs its own version bump or a 3.11 environment.
+
+Also still outstanding from session 4, not picked up this session:
+`02_divergence.ipynb` and `03_physics_features.ipynb`. Both were cut under session 4's hard
+deadline, not because of a blocker — `src/aqi/store/ledger.py` (reads the ledger, excludes
+quarantine) and the null-rate-aware `reports/metrics/coverage.json` were built specifically so these
+two notebooks would be a straightforward write, not a re-design, when picked back up.
+`02_divergence.ipynb` must print the ledger's window and row count at the top and explicitly not
+draw a conclusion from however few rows exist at that point (CLAUDE.md I4) — re-run it again before
+the report is finalized (session 12), once the ledger has real history. `03_physics_features.ipynb`
+answers whether `inversion_proxy` alone carries the dispersion signal `stagnation_index`/
+`ventilation_index` were meant to add, by correlating each against PM2.5 spikes; `01_eda.ipynb`'s
+unconditional correlation numbers (r=0.25 capital, r=0.50 Lahore for `inversion_proxy`) are a head
+start, not a substitute.
 
 Also still open from session 3, unchanged:
 1. Push this session's commit, then confirm one green `feature-pipeline`

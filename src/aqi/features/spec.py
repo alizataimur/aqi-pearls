@@ -15,6 +15,7 @@ only when the target horizon equals h exactly."
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -79,6 +80,26 @@ def expand_feature_specs(raw: dict[str, Any] | None = None) -> list[FeatureSpec]
             )
 
     return specs
+
+
+def admitted_columns(
+    available_columns: Iterable[str],
+    horizon_hours: int,
+    raw: dict[str, Any] | None = None,
+) -> list[str]:
+    """The vectorized twin of `builder.feature_vector`'s per-row admission
+    check (ADR-011/I1): every declared column name that both exists in
+    `available_columns` and is admitted at `horizon_hours`, in spec order.
+
+    Column admission never depends on a row's *values* (only on
+    `FeatureSpec.admitted_at`, which reads only `min_lag_hours`), so this can
+    safely select whole columns from a frame instead of looping row-by-row
+    the way `feature_vector` does — session 5's ladder needs the full training
+    matrix, not one row at a time.
+    """
+    specs = expand_feature_specs(raw)
+    available = set(available_columns)
+    return [s.name for s in specs if s.name in available and s.admitted_at(horizon_hours)]
 
 
 def target_column_names(raw: dict[str, Any] | None = None) -> list[str]:

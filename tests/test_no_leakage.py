@@ -24,7 +24,7 @@ import pytest
 from aqi.evaluation.scaling import fit_scaler
 from aqi.evaluation.splits import MIN_PURGE_GAP_HOURS, walk_forward_splits
 from aqi.features.builder import build_feature_frame, feature_vector
-from aqi.features.spec import expand_feature_specs
+from aqi.features.spec import admitted_columns, expand_feature_specs
 
 # Large and positive: aqi_scale.py's breakpoint lookup rejects negative
 # concentrations outright (a good sign that guard works), and its
@@ -198,6 +198,35 @@ class TestMinLagAdmission:
         assert "fc_temperature_2m_h24" in fv
         assert "fc_temperature_2m_h48" not in fv
         assert "fc_temperature_2m_h72" not in fv
+
+
+class TestAdmittedColumnsVectorized:
+    """`spec.admitted_columns` (session 5, `models/dataset.py`'s bulk twin of
+    `feature_vector`) must select exactly the same column set `feature_vector`
+    would for the same (frame, horizon) — the whole point of factoring the
+    admission rule into `FeatureSpec.admitted_at` in the first place. If these
+    two ever disagreed, the ladder's training matrix would silently include a
+    column no single-row lookup would ever have admitted."""
+
+    def test_matches_feature_vector_at_every_horizon(self) -> None:
+        cams, era5, hist_fc = _synthetic_raw(n_days=15)
+        frame = build_feature_frame(
+            cams, era5, hist_fc, city_id="islamabad", timezone="Asia/Karachi"
+        )
+        issue_time = frame.index[len(frame) // 2]
+        for horizon in (24, 48, 72):
+            fv_keys = set(feature_vector(frame, issue_time, horizon).keys())
+            bulk_keys = set(admitted_columns(frame.columns, horizon))
+            assert bulk_keys == fv_keys, (
+                f"h={horizon}: admitted_columns and feature_vector disagree — "
+                f"only in bulk: {bulk_keys - fv_keys}, only in per-row: "
+                f"{fv_keys - bulk_keys}"
+            )
+
+    def test_missing_column_is_never_admitted(self) -> None:
+        # A column the frame doesn't actually have must never appear, even if
+        # its spec says it would be admitted at this horizon.
+        assert "fc_temperature_2m_h24" not in admitted_columns(["pm2_5"], 24)
 
 
 class TestPurgeGap:

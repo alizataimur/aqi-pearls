@@ -110,47 +110,61 @@ not an assumed date.
 
 ## The training pipeline
 
-### D5 — Feature Store → train and evaluate → Model Registry ⬜
+### D5 — Feature Store → train and evaluate → Model Registry ✅
 
 **Brief:** *"Fetches historical (features, targets) from the Feature Store. Trains and evaluates the
 best ML model possible. Stores the trained model in the Model Registry."*
 
 | | |
 |---|---|
-| Lives in | `pipelines/training_pipeline.py`, `src/aqi/models/registry.py` |
-| Evidence | Registered champion carrying training window, feature-group version, git SHA and per-horizon metrics |
+| Lives in | `src/aqi/pipelines/training_pipeline.py`, `src/aqi/models/registry.py` |
+| Evidence | `python -m aqi.pipelines.training_pipeline` — reads both zones' full history via `get_store()` (never a raw refetch), trains and registers all 8 ladder rungs × 3 horizons (24 registry entries under `data/model_registry/`, regenerable, gitignored like `data/feature_store/` — ADR-020), writes `reports/metrics/ladder.json`. Champion **sarimax** (mean RMSE 19.50 across h24/h48/h72), flagged in every one of its 3 registry entries and in `data/model_registry/champion.json` |
 
-**Done distinctively:** promotion is **gated and logged** — a challenger replaces the champion only
-if it improves the primary metric without regressing hazardous-event recall. A model without its
-metrics attached cannot be promoted at all.
+**Done distinctively:** promotion is logged with an explicit, stated selection rule
+(`champion.selection_rule` in `champion.json`) rather than assumed — and because baselines are
+first-class (I6), the champion this session is genuinely **SARIMAX, not the fancier LightGBM/LSTM
+rungs** (mean RMSE 19.50 vs. 27.45 / 26.59), reported plainly rather than smoothed over (ADR-021).
+Every registry entry's `feature_columns` records what that specific rung actually read — SARIMAX's
+own exogenous covariates and AR terms, not the ~215-column admitted matrix the pooled sklearn rungs
+use — so the metadata can't be mistaken for evidence of an input a model never saw.
 
-### D6 — Scikit-learn (Random Forest, Ridge) and TensorFlow/PyTorch ⬜
+**Outstanding:** Hopsworks Model Registry is still a credential gap, same as D3's store (ADR-020) —
+`LocalModelRegistry` is the real, exercised backend this session; promotion under CLAUDE.md §12.3's
+actual primary metric (median lead time) needs the episode/ledger machinery differentiator #1 owns,
+cut this session (ADR-021).
+
+### D6 — Scikit-learn (Random Forest, Ridge) and TensorFlow/PyTorch ✅
 
 **Brief:** *"Experiment with Scikit-learn models (Random Forest, Ridge Regression) and
 TensorFlow/PyTorch for advanced models."*
 
 | | |
 |---|---|
-| Lives in | `src/aqi/models/` |
-| Evidence | The ladder table in `reports/metrics/ladder.json`, rendered in the report |
+| Lives in | `src/aqi/models/{linear,forest,gbdt,deep}.py` |
+| Evidence | `reports/metrics/ladder.json` — Ridge, Random Forest and a small PyTorch LSTM (`models/deep.py`) all present, each with per-horizon RMSE/MAE/R² |
 
-**Done distinctively:** every rung evaluated on one identical window against four baselines
-including AQICN's own published forecast — the incumbent a citizen would otherwise use.
+**Done distinctively:** the LSTM reads a genuinely different, sequential input (an 8-step lag-ordered
+sequence per base variable, built from already-leakage-tested `_lag_{h}h` columns — ADR-024) rather
+than the same flat feature vector as every other rung, so it earns its place as an architecturally
+distinct "advanced model" rather than a relabelled regressor. A real numerical bug (untrained-net
+output scale mismatch against raw 0-500 AQI, RMSE 136 on first run) was caught by actually running
+the pipeline against real data and fixed with train-only target normalization before this row could
+be called done — see ADR-024.
 
-### D7 — Evaluate using RMSE, MAE and R² ⬜
+### D7 — Evaluate using RMSE, MAE and R² ✅
 
 **Brief:** *"Evaluate performance using RMSE, MAE, and R²."*
 
 | | |
 |---|---|
-| Lives in | `evaluation/metrics.py`, `evaluation/episodes.py` |
-| Evidence | `reports/metrics/ladder.json` — per horizon, never blended |
+| Lives in | `src/aqi/evaluation/metrics.py` |
+| Evidence | `reports/metrics/ladder.json` — RMSE, MAE, R² **per horizon**, never blended, for all 8 ladder rungs; plus a precision/recall/F1 table at AQI > 200 (`episode_at_200`) per horizon per rung |
 
-**Done distinctively:** reported **per horizon**, plus episode metrics — precision, recall, critical
-success index, false-alarm ratio and **lead time** on AQI > 200 days. Average error is dominated by
-ordinary days when AQI is 80 and the model guesses 82; nobody in Rawalpindi is asking that question.
-Lead time is the project's primary metric because it answers whether a warning arrived in time to
-act on.
+**Done distinctively:** the AQI>200 precision/recall/F1 table exists alongside the RMSE/MAE/R² table
+so the report can already say something about hazardous-day detection, not just average error, even
+before differentiator #1's fuller episode metrics (CSI, false-alarm ratio, **lead time**) land — those
+are explicitly cut this session (`docs/DECISIONS.md` ADR-021) and are `evaluation/episodes.py`'s job
+next time RUNBOOK §2.1 session 6 is picked up.
 
 ---
 
@@ -231,16 +245,22 @@ future join against the feature store won't silently treat a null as a real read
 written up as a notebook; the ledger holds too few rows today for any conclusion regardless (see
 `docs/STATE.md`).
 
-### D12 — A variety of models, statistical through deep learning ⬜
+### D12 — A variety of models, statistical through deep learning ✅
 
 | | |
 |---|---|
-| Lives in | `src/aqi/models/` |
-| Evidence | The ladder: persistence, seasonal-naive, climatology, AQICN, Ridge, Random Forest, SARIMAX, LightGBM, LSTM |
+| Lives in | `src/aqi/models/{baselines,linear,forest,sarimax,gbdt,deep}.py` |
+| Evidence | `reports/metrics/ladder.json` — persistence, seasonal-naive, climatology, Ridge, Random Forest, SARIMAX (statistical), LightGBM, LSTM (deep learning), each at h24/h48/h72 on the identical 2025-26-smog-season split |
 
-**Done distinctively:** baselines are first-class. If persistence wins at some horizon, that is the
-published result — a ladder where the simple model sometimes wins reads as mature, and one where
-the fancy model always wins reads as leaky.
+**Done distinctively:** baselines are first-class, and it shows — **SARIMAX is the champion at every
+horizon** (mean RMSE 19.50, vs. 27.09-30.74 for the other ML rungs), the most "the fancy model didn't
+automatically win" result the ladder could have produced. Reported plainly rather than buried
+(CLAUDE.md I6, §12.1) — see `docs/DECISIONS.md` ADR-021 for the champion-selection rule and ADR-023
+for why a daily-granularity statistical model outperformed hourly-feature tree/neural rungs here.
+
+**Outstanding:** rung 0d (AQICN's own published forecast, the incumbent benchmark) is not in this
+session's ladder — the live ledger holds too few rows for a real comparison yet (`docs/STATE.md`) and
+the benchmark pipeline is differentiator #3, explicitly cut this session (`docs/DECISIONS.md`).
 
 ### D13 — SHAP or LIME for feature importance ⬜
 
