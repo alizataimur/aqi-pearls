@@ -67,6 +67,7 @@ dev = [
   "mypy==1.14.0",
   "pandas-stubs==2.2.3.241126",
   "httpx==0.28.1",  # FastAPI's TestClient (tests/test_api.py) needs it explicitly
+  "types-requests==2.32.0.20241016",  # alerts/telegram.py is the first module to type-check `requests`
 ]
 # Session 4 — EDA / physics-validation / divergence notebooks. statsmodels is
 # already pinned under `models` (session 5 needs it for SARIMAX); repeated
