@@ -1179,3 +1179,101 @@ this ADR as the documented reason Hopsworks — CLAUDE.md §11.1's *primary* —
 into an implied "still pending." If a Hopsworks project is created later (a paid tier, or a fresh
 account), `HopsworksFeatureStore`'s untouched implementation and `test_store_parity.py`'s skipped half
 are the immediate next step, not a rewrite.
+
+---
+
+## ADR-035 — Daily training workflow; the feature-store slice is now the full history, not two months
+
+**Status:** accepted · 2026-09-02
+
+D8 requires the feature script hourly (live, ADR-012/§7 of the report) **and the training script
+daily**. No `training-pipeline.yml` existed before this session — `reports/final_report.md` §7 said so
+directly ("no `training-pipeline.yml` exists in `.github/workflows/`; the champion in
+`data/model_registry/` was produced by a manual `make train` run"). This ADR is that gap closing, plus
+a data decision it depends on.
+
+**The data question, settled first, because it changes what the workflow's numbers would mean.**
+ADR-034 (immediately above) closed D3: Hopsworks is confirmed unavailable on this account, not merely
+unconnected, and that is not going to change before submission. `training_pipeline.py` reads the
+feature store exclusively via `get_store()` (I10, D5's brief) — on a GitHub-hosted runner, a fresh
+checkout, that store is *only* whatever `data/feature_store/` this repo has committed. ADR-030 had
+committed just two months (2026-07, 2026-08 — a Streamlit-Cloud deploy expedient, not a training
+decision) "as a deadline expedient... once D3 is green, `git rm --cached`..." — but D3 is not going
+green, per ADR-034, so that condition is now known to never fire. Training a daily ladder against a
+two-month slice with no smog season in it would produce metrics with no relationship to
+`docs/STATE.md`'s reported numbers (session 5's real run, full local history, 2022-08→2026-08,
+sarimax champion mean RMSE 19.50) or to I2's held-out-smog-season requirement (ADR-016) — the CI job
+would technically go green while silently measuring something else. That is a build-breaking gap in
+CI's evidence, not an acceptable trade for repo size.
+
+**Checked before deciding, not assumed:** `du -sh data/feature_store` → **62MB**, both zones, full
+49-month backfill (2022-08 through 2026-08, the same history `docs/DELIVERABLES.md` D4 already reports
+as committed-Parquet-eligible). Under the ~80MB budget this session was given. **Chosen:** `git add
+data/feature_store` for everything currently on disk — 94 newly-tracked partition files, replacing the
+3-month slice (`year=2026/month={07,08,09}` per zone) with the full 49 months per zone. This is a
+consequence of D3's status closing as a permanent "no," not a preference for more data over less —
+recorded here so a future session doesn't read the ~61MB commit and wonder why the earlier "two-month
+slice, revert once Hopsworks is live" plan (ADR-030) was abandoned rather than executed.
+
+**The workflow.** `.github/workflows/training-pipeline.yml`, daily, `workflow_dispatch` too, mirroring
+`feature-pipeline.yml`/`alerts.yml`'s shape as the fifth workflow committing to `main`:
+
+- **Install** — same divergence class `ci.yml`/`alerts.yml` already hit once each (bare `pip install
+  -e .` omits the `models` extra `training_pipeline.py` needs — joblib, scikit-learn, lightgbm,
+  statsmodels, torch). Installed explicitly rather than `-e ".[models]"` wholesale, since that extra
+  also carries `shap`/`mapie`, neither used by training and `shap`'s pin has no cp311 wheel (`ci.yml`'s
+  own note) — no reason to inherit that cost or that fragility in a workflow that never imports either.
+  `torch` via the CPU-only wheel index (`ci.yml` precedent, ADR-019) — same pinned version, ~180MB
+  instead of ~800MB, no GPU on this runner regardless.
+- **Run** — `python -m aqi.pipelines.training_pipeline` unchanged: full ladder, per-horizon
+  RMSE/MAE/R² + episode precision/recall/F1, `registry.promote_champion()` (§11.2's gate as it is
+  actually implemented today — session 5's logged lowest-mean-RMSE substitute, not yet the real
+  median-lead-time rule; ADR-021, unchanged by this session), writes `reports/metrics/ladder.json`.
+  This workflow does not change the promotion *rule* — that is differentiator/episode-metrics work,
+  out of scope for a D8-automation session per CLAUDE.md's "no differentiator work starts until its
+  parent deliverable is green."
+- **Commit** — checked directly against the two things that have already bitten this repo, not
+  assumed fixed by resemblance to `feature-pipeline.yml`: (1) `.gitignore`'s `data/model_registry/*`
+  rules are a strict allowlist (ADR-030) — `random_forest`, `sarimax` and `lstm` model artifacts are
+  excluded by design (unserved, regenerable, `random_forest` alone ~56MB) and `git add
+  data/model_registry` on a directory never force-stages an ignored path, so the commit step only ever
+  stages `metadata.json` × 24, `champion.json`, and the small baseline/`lightgbm` `.joblib` files the
+  allowlist actually names — verified by staging a real local training run's output and reading `git
+  status --porcelain` directly (see below), not inferred from reading the ignore file; (2) the same
+  `git diff --staged --quiet` guard `feature-pipeline.yml` uses, so a day where promotion doesn't
+  change anything exits 0 instead of failing on "nothing to commit" — the exact failure mode that hit
+  `feature-pipeline` at session 6's commit step.
+- **Concurrency + retry** — own group (`training-pipeline`), `cancel-in-progress: false`, the same
+  bounded `pull --rebase --autostash` × 3 retry the other three write-to-`main` workflows already
+  carry. No shared group with `feature-pipeline`/`alerts` — matches the established pattern (each
+  workflow gets its own group; cross-workflow races are handled by the retry loop, not by serializing
+  unrelated jobs against each other).
+- **Failure reporting** — identical shape to `feature-pipeline.yml`/`alerts.yml`: Telegram (if
+  configured) plus open/update/close a tracking issue labelled `pipeline-failure`, `training-pipeline`.
+- **Schedule** — `15 3 * * *` (03:15 UTC / 08:15 PKT), clear of `clock-starter`'s `:07`,
+  `feature-pipeline`'s `:22` and `alerts`' `:37` minutes, and outside typical Pakistan daytime dashboard
+  traffic.
+
+**Timeout budget, measured not guessed.** A real local run — `time python -m
+aqi.pipelines.training_pipeline`, this session, against the full 62MB committed history, all three
+horizons, all eight rungs including SARIMAX's per-zone `powell`-method fits and the LSTM's 8 epochs —
+completed in **6m26s wall clock** (`real 6m26.164s`), champion `sarimax`, mean RMSE 19.50 — the same
+result `docs/STATE.md`/session 5 already report, confirming the fuller committed feature store changes
+nothing about what a full-history run produces (session 5's manual run already read the full *local*
+store; only *CI's checkout* was short). `timeout-minutes: 30` in the workflow leaves roughly 4-5x that
+measured time as headroom for install steps (~1-2 min) and a GitHub-hosted runner generally being
+slower and less cache-warm than this dev machine, without silently training fewer rungs than
+`ladder.json`/`docs/STATE.md` claim. **If a real CI run ever approaches 30 minutes**, the honest
+response is to say so in `docs/STATE.md` and drop a named rung explicitly (SARIMAX's six per-zone,
+per-horizon `powell` fits are the most plausible slow point relative to a dev machine, followed by
+Random Forest's `n_estimators=200`) — not to silently shrink the ladder while `reports/metrics/
+ladder.json` and the report's ladder table keep claiming all eight. Not needed this session: the
+measured 6m26s leaves wide margin.
+
+**Rejected:** training on the committed two-month slice as-is and documenting the shorter window as a
+limitation. Rejected because I2 already names the requirement this would break — "the test period must
+contain a full smog season (Oct-Feb)" — and a slice that is two consecutive months in the same season
+statistics *of 2026* cannot contain the 2025-26 test window ADR-016 already fixed; the CI-trained
+champion and its metrics would not be comparable to any other number in this repo. Also rejected:
+switching `FEATURE_STORE_BACKEND` to `hopsworks` for this workflow specifically — ADR-034 already
+closed that door for the whole project, not just this workflow.

@@ -1,0 +1,164 @@
+# D8's daily half (CLAUDE.md §13). Trains the full ladder (persistence,
+# seasonal-naive, climatology, SARIMAX, Ridge, Random Forest, LightGBM, LSTM)
+# on the feature store, evaluates per horizon, applies the §11.2 promotion
+# gate (`training_pipeline.py::run_training_pipeline` — session 5's logged
+# lowest-mean-RMSE substitute, ADR-021), and registers the result.
+#
+# CI can only train on what is committed: ADR-034 confirmed Hopsworks
+# unavailable, so `FEATURE_STORE_BACKEND` stays `parquet` and this workflow's
+# checkout IS the training data. ADR-035 replaced the two-month
+# `data/feature_store/` slice with the full 49-month history (~62MB, under
+# the ~80MB budget that decision set) specifically so this workflow's numbers
+# are the same numbers a local run over the full history produces — a daily
+# retrain on two committed months would be evaluated on a season-less slice
+# and its metrics would not mean what `docs/STATE.md`/`ladder.json` claim.
+#
+# Mirrors feature-pipeline.yml/alerts.yml's shape — concurrency group,
+# rebase-retry commit, Telegram + issue failure reporting — as the fifth
+# workflow committing to `main`.
+
+name: training-pipeline
+
+on:
+  schedule:
+    - cron: "15 3 * * *"    # daily, 03:15 UTC — clear of every hourly/6-hourly
+                              # workflow's minute (clock-starter :07, feature-
+                              # pipeline :22, alerts :37) and of typical
+                              # daytime-Pakistan dashboard traffic (08:15 PKT)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: training-pipeline
+  cancel-in-progress: false   # never cancel mid-training/mid-write — a
+                               # half-trained ladder or a partial registry
+                               # commit is worse than a slow one
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    # See ADR-035 for the measured local wall-clock time this budget is based
+    # on, and what would be dropped first if a real CI run ever approaches it
+    # (CI runners are typically slower than a dev machine, so this is not a
+    # 1:1 estimate).
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Same divergence class ci.yml and alerts.yml both hit: `pip install -e .`
+      # alone omits everything training_pipeline.py actually imports (joblib,
+      # scikit-learn, lightgbm, statsmodels, torch — all behind the `models`
+      # extra). Installed individually, pinned to pyproject.toml's versions,
+      # rather than `-e ".[models]"` wholesale: that extra also pulls in shap
+      # and mapie, neither of which the training pipeline touches, and shap's
+      # pin has no cp311 wheel (ci.yml's own note) — no reason to pay that cost
+      # or inherit that fragility here. torch via the CPU-only wheel index
+      # (ci.yml's precedent, ADR-019): same pinned version, ~180MB instead of
+      # the default index's ~800MB CUDA build, and this job never touches a GPU.
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install joblib scikit-learn==1.6.0 lightgbm==4.5.0 statsmodels==0.14.4
+          pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Train the ladder, evaluate, promote, register
+        env:
+          FEATURE_STORE_BACKEND: ${{ secrets.FEATURE_STORE_BACKEND || 'parquet' }}
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
+        run: python -m aqi.pipelines.training_pipeline
+
+      - name: Commit the registry and metrics
+        # .gitignore's data/model_registry/* rules are a strict allowlist
+        # (ADR-030): random_forest, sarimax and lstm artifacts are
+        # deliberately excluded (unserved, regenerable, and random_forest
+        # alone is ~56MB) and `git add` on a directory never force-stages an
+        # ignored path, so this only ever stages what the allowlist permits
+        # — every model's metadata.json, champion.json, and the small
+        # baseline/lightgbm .joblib files actually served. Same
+        # nothing-to-commit guard feature-pipeline.yml uses: a day where
+        # promotion doesn't change anything must not fail the job.
+        run: |
+          git config user.name  "training-pipeline[bot]"
+          git config user.email "training-pipeline@users.noreply.github.com"
+          git add data/model_registry reports/metrics
+          if git diff --staged --quiet; then
+            echo "nothing new to commit"
+            exit 0
+          fi
+          git commit -m "chore(training): daily ladder run $(date -u +'%Y-%m-%dT%H:%MZ')"
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && \
+            git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            echo "push attempt ${attempt} failed, retrying"
+            sleep 5
+          done
+          exit 1
+
+      - name: Report failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "${TELEGRAM_BOT_TOKEN}" ]; then
+            curl -sS -X POST \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d chat_id="${TELEGRAM_CHAT_ID}" \
+              -d text="training-pipeline FAILED: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+              > /dev/null || true
+          fi
+
+      - name: Open or update a tracking issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "training-pipeline is failing";
+            const body = `The daily training-pipeline workflow failed: ` +
+              `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n` +
+              `D8's evidence bar is a green daily training run; this is a build-breaking gap until closed (CLAUDE.md §13).`;
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", labels: ["pipeline-failure", "training-pipeline"],
+            });
+            if (existing.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ["pipeline-failure", "training-pipeline"],
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing[0].number, body,
+              });
+            }
+
+      - name: Close the tracking issue on recovery
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", labels: ["pipeline-failure", "training-pipeline"],
+            });
+            for (const issue of existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Recovered: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number, state: "closed",
+              });
+            }
