@@ -392,6 +392,7 @@ and is described in §11.
 |---|---|---|---|
 | `clock-starter` | hourly | AQICN observation + published forecast → ledger | 🟡 8/25 green, last success 2026-09-01T18:25:02Z |
 | `feature-pipeline` | hourly | fetch → validate → engineer → upsert | 🟡 1/9 green, last success 2026-09-01T20:30:14Z |
+| `training-pipeline` | daily | train the ladder, evaluate, promote, register | 🟢 1/1 green, first and only run 2026-09-02T12:41:56Z |
 | `alerts` | 6-hourly | evaluate alert rules, send notification | 🟡 2/4 green, last success 2026-09-01T21:16:20Z |
 | `ci` | on push | ruff, mypy, pytest, leakage test | 🟢 19/37 green, last success 2026-09-01T20:28:09Z |
 
@@ -414,13 +415,31 @@ all runs since each workflow's first run — every workflow here first ran on or
 - **`alerts`**: **2/4 green**, most recently 2026-09-01T21:16:20Z. The first two failed on
   `ModuleNotFoundError: joblib` (the workflow never installed the extra that provides it); both runs
   since the fix landed have been green.
+- **`training-pipeline`**: **1/1 green** — `.github/workflows/training-pipeline.yml` did not exist
+  before this session; run
+  [`33630893038`](https://github.com/alizataimur/aqi-pearls/actions/runs/33630893038), a manual
+  `workflow_dispatch` against commit `4233068` (2026-09-02T12:36:44Z → 12:41:56Z, 5m13s wall clock:
+  32s install, 4m25s to train and register all eight ladder rungs at all three horizons, 3s to commit),
+  read directly from the Actions jobs API, not assumed from the workflow file existing. It registered
+  the same champion (**sarimax**, mean RMSE 19.50) session 5's manual local run had already found,
+  confirming the full committed feature store (below) reproduces the local numbers rather than
+  training on a shorter window that would silently mean something else.
 
-**The brief asks for an hourly feature script and a daily training script.** The hourly half runs
-(when its own bugs aren't blocking it, as above). **The daily training workflow was not built before
-submission** — no `training-pipeline.yml` exists in `.github/workflows/`; the champion in
-`data/model_registry/` was produced by a manual `make train` run, not an automated daily job. The
-project's own target — seven consecutive green days — was not reachable within the elapsed calendar
-time available and is reported as the number actually observed above, not estimated toward.
+**The brief asks for an hourly feature script and a daily training script.** Both scripts now run as
+scheduled GitHub Actions workflows. **The daily training workflow did not exist for most of the
+build** — until this session, the champion in `data/model_registry/` came from a manual `make train`
+run, not an automated job, and `data/feature_store/` carried only a two-month slice
+(`year=2026/month={07,08,09}`) committed as a Streamlit Cloud deploy expedient (ADR-030). That slice
+was never going to be enough to train against once ADR-034 confirmed Hopsworks permanently
+unavailable — CI can only read what is committed, and a daily retrain on two months with no smog
+season in them would be a green job silently measuring nothing comparable to any other number in this
+report (I2). `docs/DECISIONS.md` ADR-035 replaces the slice with the full 49-month, ~62MB backfill and
+adds `training-pipeline.yml`, scheduled daily at 03:15 UTC with a 30-minute timeout — a budget checked
+against a real measured run (6m26s locally, 4m25s on the runner itself), not guessed, with a named
+fallback (drop SARIMAX's per-zone fits first) if a future live run ever approaches it. The project's
+own target — seven consecutive green days — was not reachable within the elapsed calendar time
+available for either scheduled workflow and is reported as the number actually observed above, not
+estimated toward.
 
 ### 7.1 An outage worth reporting
 

@@ -172,7 +172,7 @@ session either — session 6 built serving/dashboard/explanations/alerts instead
 
 ## Automation
 
-### D8 — CI/CD: feature script hourly, training script daily ⬜
+### D8 — CI/CD: feature script hourly, training script daily 🟡
 
 **Brief:** *"Create a CI/CD pipeline that automatically runs the feature script every hour, and the
 training script every day."*
@@ -180,12 +180,29 @@ training script every day."*
 | | |
 |---|---|
 | Lives in | `.github/workflows/` |
-| Evidence | Actions history showing ≥ 7 consecutive green days |
-| Running now | `clock-starter` (hourly) ✅ · `ci` (on push) ✅ |
+| Evidence | Actions history showing ≥ 7 consecutive green days · `training-pipeline.yml`'s first live run, read from the Actions API, not assumed: [run `33630893038`](https://github.com/alizataimur/aqi-pearls/actions/runs/33630893038), `workflow_dispatch` against commit `4233068`, **success**, 2026-09-02T12:36:44Z → 12:41:56Z (5m13s: 32s install, 4m25s train/evaluate/promote/register, 3s commit) — registered `sarimax` as champion (mean RMSE 19.50), matching session 5's manual local run |
+| Running now | `clock-starter` (hourly) ✅ · `feature-pipeline` (hourly) 🟡 · `training-pipeline` (daily) 🟡 · `alerts` (6-hourly) 🟡 · `ci` (on push) ✅ |
+| Outstanding | Both scheduled workflows now exist and have each had a confirmed green run, but neither has **≥7 consecutive green days** — `training-pipeline` has exactly one run total (today's manual `workflow_dispatch`, ahead of its first scheduled 03:15 UTC tick); `feature-pipeline` has 1 confirmed green run out of 9 (`docs/STATE.md`). D8's evidence bar is a streak, not a single green run, and is not yet met by either daily-cadence workflow |
 
 **Done distinctively:** uptime is **measured and published**, not asserted. Every workflow reports
 failures to Telegram and opens an issue, because a silently dead pipeline for a week destroys the
 benchmark claim.
+
+**`training-pipeline.yml` was the last piece of D8 to exist at all** — for most of the build the
+champion in `data/model_registry/` came from a manual `make train` run, and `data/feature_store/`
+carried only a two-month committed slice, a Streamlit Cloud deploy expedient (ADR-030) never meant to
+be CI's *training* data. Once `docs/DECISIONS.md` ADR-034 confirmed Hopsworks is permanently
+unavailable on this account (not merely unconnected), that two-month slice became the only data any
+CI-run training job could ever see — training a daily ladder against a season-less two-month window
+would go green while silently violating I2 (the test split must contain a full smog season) and
+producing metrics incomparable to every other number in this repo. ADR-035 replaced the slice with the
+full 49-month, ~62MB backfill (checked against an ~80MB budget first, not assumed to fit) and added the
+workflow: daily at 03:15 UTC, `workflow_dispatch` too, mirroring `feature-pipeline.yml`/`alerts.yml`'s
+concurrency-group + rebase-retry-commit + Telegram/issue-failure shape as the fifth workflow committing
+to `main`. The 30-minute job timeout is a measured budget (a real local full-ladder run: 6m26s; the
+same ladder on the Actions runner itself: 4m25s), not a guess — with a named fallback (drop SARIMAX's
+per-zone `powell` fits first) recorded in the ADR for if a future live run ever approaches it, rather
+than silently training fewer rungs than `ladder.json` claims.
 
 ---
 

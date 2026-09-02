@@ -5,7 +5,7 @@
 
 **Stage:** 4 — Make it usable, in progress / Session 6 (serving, dashboard, explanations, alerts)
 — CLOSED (D9 ✅, D10 🟡, D13 ✅, D14 🟡)
-**Updated:** 2026-09-01
+**Updated:** 2026-09-02 — D8's daily half built and confirmed green live, see below
 **Repo status:** public, pushed — https://github.com/alizataimur/aqi-pearls
 **Live dashboard:** <https://aqi-pearls-predictor.streamlit.app/> — confirmed rendering on the
 **live model path**, not the static-snapshot fallback, after ADR-033's data migration (ADR-031's fix
@@ -28,6 +28,50 @@ walk-forward folds must end with this season as the final test chunk.
 alert rule all run on the registered **LightGBM** model, not SARIMAX (`reports/metrics/ladder.json`'s
 champion by backtest RMSE) — SARIMAX's registered artifact only supports retrospective scoring, not
 genuine forward prediction. See ADR-025.
+
+---
+
+## D8's daily half — `training-pipeline.yml` built, pushed, confirmed green live (ADR-035)
+
+**No `training-pipeline.yml` existed before this session** — D8 was hourly-half-only, and the
+registered champion had always come from a manual `make train` run. Two things closed together,
+because the second was a precondition for the first meaning anything: ADR-034 (previous session)
+confirmed Hopsworks is permanently unavailable on this account, which means CI can only ever train on
+whatever `data/feature_store/` has committed — and that was a two-month slice (`year=2026/month=
+{07,08,09}`), a Streamlit Cloud deploy expedient (ADR-030), never meant to be training data. A daily
+retrain on two season-less months would go green while violating I2 and producing numbers incomparable
+to everything else in this repo. Checked first, not assumed: `du -sh data/feature_store` → **62MB**,
+under the ~80MB budget given — so the full 49-month backfill (94 newly-tracked partition files) now
+replaces the slice, committed in `4233068`.
+
+`.github/workflows/training-pipeline.yml` mirrors `feature-pipeline.yml`/`alerts.yml`'s shape
+(concurrency group, bounded `pull --rebase` retry, Telegram+issue failure reporting), daily at 03:15
+UTC + `workflow_dispatch`, `timeout-minutes: 30` — a budget checked against a real measured run, not
+guessed: a full local ladder run (all 8 rungs × 3 horizons) took **6m26s** wall clock. See ADR-035 for
+the full reasoning and the named fallback (drop SARIMAX's per-zone fits first) if a live run ever
+approaches the budget.
+
+**Confirmed live, from the real Actions API, not assumed from the push:** Aliza clicked
+`workflow_dispatch` on `main`; run
+[`33630893038`](https://github.com/alizataimur/aqi-pearls/actions/runs/33630893038) against commit
+`4233068`, **success**, 2026-09-02T12:36:44Z → 12:41:56Z — **5m13s total** (32s install, **4m25s**
+train/evaluate/promote/register, 3s commit; the runner was faster than the local timing run). Its own
+commit, `fbe6c92` ("chore(training): daily ladder run 2026-09-02T12:41Z"), is on `main` — pulled and
+read directly: `reports/metrics/ladder.json`'s champion is **sarimax, mean RMSE 19.50352...**, the same
+result session 5's manual local run found, confirming the fuller committed feature store reproduces
+the real local numbers rather than a different, shorter-window answer. `data/model_registry/
+champion.json` and all 24 `metadata.json` entries carry `git_sha: 4233068...` — the commit that added
+the workflow and the full feature store, not a stale local SHA.
+
+`workflow_dispatch` could not be triggered by this session directly — same 401 "Requires
+authentication" prior sessions hit dispatching `feature-pipeline`/`alerts` (no GitHub token available
+here). **Needs Aliza** the same way every future manual dispatch will, unless a token is added to this
+environment.
+
+`reports/final_report.md` §7's workflow table and `docs/DELIVERABLES.md` D8 both updated to match —
+D8 moves ⬜ → 🟡: both scheduled daily/hourly workflows now exist and each has a confirmed green run,
+but neither has the ≥7-consecutive-green-days evidence bar yet (`training-pipeline` has exactly one
+run: today's manual dispatch, ahead of its first scheduled tick).
 
 ---
 
@@ -707,6 +751,12 @@ retrofitted to make a broken builder look clean.
 ---
 
 ## The single next action
+
+**Get `training-pipeline` and `feature-pipeline` each to a real ≥7-consecutive-green-day streak** —
+D8's actual evidence bar, not yet met by either. `training-pipeline` has one run total (today's manual
+dispatch, see above); its first scheduled tick is 03:15 UTC. `feature-pipeline` is 1/9 green
+(`docs/STATE.md`'s "Both red workflows root-caused..." entry below) — confirm its fix (`83a738a`) is
+still holding across its hourly schedule, not just the one confirmed run.
 
 **Confirm `feature-pipeline` and `alerts` are actually green against `83a738a`** (see "Both red
 workflows root-caused..." above) — both fixes are pushed and locally verified, but neither workflow
