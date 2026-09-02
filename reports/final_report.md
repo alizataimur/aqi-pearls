@@ -62,7 +62,7 @@ flowchart TB
         CI["ci<br/>on push"]
     end
     subgraph STORE["State"]
-        FS[("Feature Store<br/>Parquet (Hopsworks unconnected)")]
+        FS[("Feature Store<br/>Parquet (Hopsworks confirmed unavailable)")]
         MR[("Model Registry<br/>committed directory")]
         LG[("Forecast Ledger<br/>append-only")]
     end
@@ -91,8 +91,10 @@ rhetorical.
 The diagram shows the system as deployed, not as designed. Two boxes differ from the original
 architecture and both differences are stated where they matter: the FastAPI service exists as code
 and passes its tests but is deployed nowhere, so the dashboard reads the store directly rather than
-through it (§7.2); and the feature store runs on its Parquet backend, with the Hopsworks backend
-implemented and tested but not connected to a live project (§10).
+through it (§7.2); and the feature store runs on its Parquet backend — not because Hopsworks was never tried, but
+because it was tried and confirmed unavailable: the API key authenticates against Hopsworks' own
+SaaS host and the backend responds, yet the account has zero projects, and creating one on this tier
+is a console action the key cannot perform (§10, ADR-034).
 
 ---
 
@@ -588,10 +590,16 @@ evidence that the rest of its numbers are real.
 9. **AQI conversion differences are not forecast differences.** The 2024 EPA breakpoint revision is
    used throughout; providers have not all migrated, and part of any gap against a provider's
    published AQI is arithmetic rather than skill.
-10. **The model registry is a directory committed to git.** Hopsworks is implemented and passes the
-    same test suite as the Parquet backend, but is not connected to a live project. Committing
-    serving artifacts was a deadline expedient (ADR-030), and the deployment failure in §7.2 is the
-    direct consequence of a registry that a fresh checkout cannot otherwise reach.
+10. **The model registry is a directory committed to git, and the feature store is Parquet, not
+    Hopsworks — confirmed unavailable, not merely unconnected.** `HopsworksFeatureStore` is
+    implemented and passes the same test suite as the Parquet backend. Both `HOPSWORKS_API_KEY` and
+    `HOPSWORKS_PROJECT` were set and tested this session: the key authenticates cleanly against
+    Hopsworks' own SaaS host, and the backend responds — but the account it belongs to has **zero**
+    projects, and creating one on this account's tier is a console action, not something an API key
+    can do (ADR-034; the raw connection evidence is there too). This is a hard external limit, not a
+    pending setup step. Committing serving artifacts was a deadline expedient regardless (ADR-030),
+    and the deployment failure in §7.2 is the direct consequence of a registry that a fresh checkout
+    cannot otherwise reach.
 11. **The FastAPI service is not deployed** (§7.2), so the dashboard does not consume it in
     production.
 12. **The alert channel is email, not WhatsApp** (§7.3) — reachable, but not where this audience is.

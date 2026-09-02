@@ -31,6 +31,35 @@ genuine forward prediction. See ADR-025.
 
 ---
 
+## D3 — Hopsworks confirmed unavailable, not merely unconnected (ADR-034)
+
+`HOPSWORKS_API_KEY`/`HOPSWORKS_PROJECT` were set this session (`.env`, GitHub Secrets) and tested for
+real, replacing every earlier "credential gap" framing in this file's older entries below (left
+as-is — they were accurate when written; not retroactively edited). A throwaway diagnostic connected
+with the API key alone, using `hopsworks.connection.Connection.get_projects()` (the library's own
+public listing API, read from the installed 4.8.5 package's real source, not guessed): the key
+authenticates against `eu-west.cloud.hopsworks.ai`, the backend responds (version 5.0.3, itself proof
+the key is genuinely valid — an invalid key never gets that far) — and `get_projects()` returns an
+**empty list**. The account has zero projects, and creating one on this account's tier is a console
+action an API key cannot perform.
+
+**D3 stays 🟡, Parquet stays primary — this changes the reason, not the status.** Full detail and the
+raw evidence: `docs/DECISIONS.md` ADR-034. `reports/final_report.md` §2 (diagram + prose) and §10
+(limitation 10, formerly numbered 9 before this session's stale-ground-truth-feed finding added a new
+limitation 1 — see the earlier "AQICN ground-truth feed frozen" entry) corrected to match, along with
+`docs/DELIVERABLES.md` D3's Evidence/Outstanding cells. `HopsworksFeatureStore` and its half of
+`tests/test_store_parity.py` stay in the repo — written, connection-proven, blocked externally.
+
+**Not touched:** `pytest tests/test_store_parity.py` was not re-run against the real credentials —
+that test file's skip condition checks `os.environ`, not `.env` (pydantic-settings reads `.env`
+internally without exporting it to the process environment), so it still shows the Hopsworks half as
+skipped. The diagnostic's direct connection attempt makes the real outcome known anyway: it would
+fail with the same "project not found" error `get_store()` now raises everywhere in this repo when
+`FEATURE_STORE_BACKEND=hopsworks` is set (confirmed — this briefly broke the full local test suite
+until traced to this exact cause).
+
+---
+
 ## Post-session-6 incidents — Streamlit Cloud deploy, three bugs, all fixed, one debt recorded
 
 The first real deploy hit three bugs a purely-local session never surfaces, all

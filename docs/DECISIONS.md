@@ -1109,3 +1109,73 @@ leading slash again — reading every tracked `metadata.json` directly, not
 exercising the resolver at all. Testing only the writer (ADR-031's original
 `TestArtifactPathIsPortable`) missed this; testing only the resolver would
 still have missed the OS-dependence. Both are needed, and now both exist.
+
+---
+
+## ADR-034 — Hopsworks is confirmed unavailable on this account, not merely unconnected
+
+**Status:** accepted · 2026-09-02
+
+Every earlier note on D3 (ADR-014, ADR-020's cross-reference, `docs/STATE.md` throughout) describes
+Hopsworks as a **credential gap** — `HOPSWORKS_API_KEY`/`HOPSWORKS_PROJECT` empty, waiting on Aliza
+to create an account and a project (`docs/RUNBOOK.md` §5). That framing implied a pending action with
+an unknown but presumably reachable outcome. It is no longer accurate, and this ADR replaces it with
+what was actually found.
+
+Both credentials were set (`.env`, GitHub Secrets) this session. `FEATURE_STORE_BACKEND` briefly
+carried a typo (`hopswork`, missing the trailing "s") that raised a Pydantic validation error before
+any connection was attempted — fixed, and unrelated to what follows. Once the config validated, the
+real connection attempt failed: `hopsworks_common.client.exceptions.ProjectException: Could not find
+project aqi_predictor` (`HOPSWORKS_PROJECT`'s configured value). Rather than guess whether that meant
+a wrong name or a genuinely empty account, a throwaway diagnostic (not committed) connected with
+`HOPSWORKS_API_KEY` alone — no project name — using the `hopsworks` package's own public API,
+`hopsworks.connection.Connection.get_projects()`, read from the installed 4.8.5 package's real source
+via `inspect.getsource` rather than guessed (`hopsworks.login()`'s own source, read the same way,
+confirmed this is exactly the call path `login(project=None)` takes internally).
+
+**The evidence, in full:**
+
+```
+API key present: True length: 81
+SaaS host (no HOPSWORKS_HOST set, this is what login() defaults to): eu-west.cloud.hopsworks.ai
+Initializing external client
+Base URL: https://eu-west.cloud.hopsworks.ai:443
+UserWarning: installed hopsworks client version 4.8.5 may not be compatible with the
+  connected Hopsworks backend version 5.0.3 [...]
+connected host: eu-west.cloud.hopsworks.ai
+connected port: 443
+number of projects visible: 0
+```
+
+The backend disclosing its own version (5.0.3) in response is decisive: an invalid key is rejected by
+the SaaS host before it would ever get that far, so the key is confirmed genuinely valid and the
+connection genuinely real. `get_projects()` — the library's real listing call, not a project-scoped
+lookup — returns an empty list. The account the key belongs to has **zero** projects, and Hopsworks
+SaaS's free tier does not expose project creation through the API; it is a console/UI action. An API
+key, however valid, cannot create the project it would need to then use.
+
+**Chosen:** record this as **confirmed unavailable**, not "not yet connected." D3 stays 🟡, on the
+Parquet backend as primary, exactly as it already was — this changes the *reason*, not the *status*.
+`HopsworksFeatureStore` (`src/aqi/store/hopsworks_store.py`) and its half of
+`tests/test_store_parity.py` stay in the repo: the implementation is real, written against the
+documented SDK surface, and now additionally proven able to *authenticate* — what it cannot do is
+reach a project that does not exist, which is an account-tier limitation external to the code. Deleting
+working, connection-proven code because the specific account it was tested against has no project
+would be throwing away evidence, not fixing anything.
+
+**Rejected:** leaving D3's prior "credential gap" framing in place now that credentials exist and were
+tested — it would misrepresent a resolved unknown (does the key work? does a project exist?) as a
+still-pending one, when both questions now have hard answers. Also rejected: creating a project via
+any path other than the Hopsworks console, since none exists for this account/tier — confirmed by
+`get_projects()` returning `[]` rather than erroring, and by `hopsworks.login()`'s own source printing
+exactly this guidance when it hits the same empty-project case
+(`"Could not find any project, use hopsworks.create_project('my_project') to create one"` — itself an
+API call that requires an existing project-creation entitlement this account's tier doesn't grant).
+
+**Consequence:** D3's Evidence bar (`docs/DELIVERABLES.md`) is met by the Parquet backend alone, with
+this ADR as the documented reason Hopsworks — CLAUDE.md §11.1's *primary* — is not what's running.
+`reports/final_report.md` §2's architecture diagram and §10's limitation list are corrected to match:
+"Hopsworks unconnected" is replaced with the confirmed-unavailable finding above, not softened back
+into an implied "still pending." If a Hopsworks project is created later (a paid tier, or a fresh
+account), `HopsworksFeatureStore`'s untouched implementation and `test_store_parity.py`'s skipped half
+are the immediate next step, not a rewrite.

@@ -26,10 +26,16 @@ dependencies = [
 # needed to run or test ParquetFeatureStore. `hopsworks` bumped from the
 # original 4.1.5 pin: that release requires Python <3.13, and this dev venv
 # runs 3.13 (same class of problem as the torch/shap pins, ADR-019/028).
-# 4.8.5 is the newest 4.x release (avoids the 5.x major line's unverified
-# API surface), ships requires_python <3.14,>=3.9, and is a pure `py3-none`
-# wheel — no native build. Now connected and verified against a live
-# project (ADR-034).
+# 4.8.5 ships requires_python <3.14,>=3.9 and is a pure `py3-none` wheel —
+# no native build. The connection itself is now proven real: a diagnostic
+# authenticated against Hopsworks' SaaS host and got a response, but the
+# account has zero projects and can't create one via the API (ADR-034) —
+# Hopsworks is confirmed unavailable on this account, not unconnected.
+# One more thing the diagnostic surfaced: the live backend reports version
+# 5.0.3 and warns 4.8.5 may not be fully compatible with it — worth
+# re-pinning to hopsworks==5.0.* if a project ever becomes available to
+# test against; not done here since it can't be verified against anything
+# live right now.
 data = [
   "pandera==0.22.1",
   "duckdb==1.1.3",
