@@ -7,5 +7,5 @@
   ],
   "selection_rule": "lowest mean RMSE across h24/h48/h72 (session 5 substitute for CLAUDE.md \u00a712.3's median-lead-time primary metric)",
   "selection_value": 19.503520857574653,
-  "promoted_at": "2026-09-03T08:08:02.585624+00:00"
+  "promoted_at": "2026-09-04T08:03:40.430399+00:00"
 }
