@@ -7,7 +7,7 @@
     "train_end": "2025-09-27T19:00:00+00:00"
   },
   "feature_group_version": 1,
-  "git_sha": "bdd78816eb2e835291b36f725aee969caf635762",
+  "git_sha": "366e46652b1fb6e2bdbfe3165ef661af785acdc0",
   "feature_columns": [
     "pm2_5",
     "pm10",
@@ -22,9 +22,9 @@
   ],
   "metrics": {
     "regression": {
-      "rmse": 30.85803252564803,
-      "mae": 24.39442493002447,
-      "r2": 0.5890646487158091,
+      "rmse": 30.85803245305865,
+      "mae": 24.394424569675127,
+      "r2": 0.5890646506491496,
       "n": 7248
     },
     "episode_at_200": {
@@ -38,6 +38,6 @@
     "n_train": 45832
   },
   "champion": false,
-  "registered_at": "2026-09-04T08:03:40.429211+00:00",
+  "registered_at": "2026-09-05T07:44:06.157521+00:00",
   "artifact_path": "model.pt"
 }
