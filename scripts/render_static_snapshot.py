@@ -19,13 +19,20 @@ import json
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 SNAPSHOT_PATH = REPO_ROOT / "reports" / "dashboard_snapshot.json"
 
 
-def build_snapshot() -> dict[str, object]:
+def build_snapshot(frame: pd.DataFrame | None = None) -> dict[str, object]:
+    """`frame` is optional so a caller that has already loaded the feature
+    store this run (e.g. `aqi.pipelines.inference_pipeline`, which needs the
+    same frame to write the forecast ledger) can pass it in rather than
+    paying for a second load — the schema this returns is unchanged either
+    way."""
     from aqi.explain.i18n import health_guidance, load_i18n
     from aqi.explain.shap_explain import explain_zone
     from aqi.serving.inference import (
@@ -37,7 +44,8 @@ def build_snapshot() -> dict[str, object]:
     )
     from aqi.store.ledger import ledger_window
 
-    frame = load_frame_cached()
+    if frame is None:
+        frame = load_frame_cached()
     zone_list = list(zones())
 
     current = {}
