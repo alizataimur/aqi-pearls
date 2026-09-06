@@ -55,7 +55,23 @@ class StationMismatchError(AQICNError):
 
 
 class StaleReadingError(AQICNError):
-    """The station answered from the right place, but its reading is old."""
+    """The station answered from the right place, but its reading is old.
+
+    Carries `time_iso`/`age_hours` as structured attributes (not just baked
+    into the message string) so a caller recording this as an explicit I3
+    gap — CLAUDE.md's "record downtime gaps rather than interpolating over
+    them" — can do so without parsing prose back out of an exception."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        time_iso: str | None = None,
+        age_hours: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.time_iso = time_iso
+        self.age_hours = age_hours
 
 
 def fetch_feed(
@@ -210,9 +226,11 @@ def verify_freshness(
     try:
         observed_at = datetime.fromisoformat(iso)
     except ValueError as exc:
-        raise StaleReadingError(f"time.iso {iso!r} is not a parseable timestamp") from exc
+        raise StaleReadingError(
+            f"time.iso {iso!r} is not a parseable timestamp", time_iso=iso
+        ) from exc
     if observed_at.tzinfo is None:
-        raise StaleReadingError(f"time.iso {iso!r} has no timezone offset")
+        raise StaleReadingError(f"time.iso {iso!r} has no timezone offset", time_iso=iso)
 
     delta = now.astimezone(UTC) - observed_at.astimezone(UTC)
     age_hours = delta.total_seconds() / 3600.0
@@ -220,7 +238,9 @@ def verify_freshness(
         raise StaleReadingError(
             f"station reading is {age_hours:.1f}h old (time.iso={iso}) — older than "
             f"the {max_age_hours}h freshness threshold, refusing to write it as a "
-            "current observation"
+            "current observation",
+            time_iso=iso,
+            age_hours=age_hours,
         )
     return age_hours
 

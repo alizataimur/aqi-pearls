@@ -41,6 +41,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from aqi.sources.aqicn import (  # noqa: E402
     AQICNError,
+    StaleReadingError,
     extract_forecast,
     extract_observation,
     fetch_feed,
@@ -276,7 +277,7 @@ def main() -> int:
         print("no cities configured in conf/cities.yaml", file=sys.stderr)
         return 1
 
-    captured, failed, skipped = [], [], []
+    captured, failed, stale, skipped = [], [], [], []
     for city in cities:
         city_id = str(city.get("id", "unknown"))
         if not city.get("aqicn_station"):
@@ -288,6 +289,38 @@ def main() -> int:
         try:
             capture_city(city, token, now, args.dry_run)
             captured.append(city_id)
+        except StaleReadingError as exc:
+            # Distinct from a real failure: the feed answered, from the right
+            # station, but its own reading is stale — a known, recorded
+            # upstream condition (ADR-034's class of finding), not something
+            # this script did wrong. I3: record the gap explicitly rather
+            # than interpolating over it, or over-reporting it as an outage
+            # this project caused.
+            stale.append((city_id, exc.age_hours))
+            print(
+                f"[warn] {city_id}: stale upstream reading "
+                f"({exc.age_hours:.1f}h old, ADR-034) — {exc}"
+                if exc.age_hours is not None
+                else f"[warn] {city_id}: stale upstream reading (ADR-034) — {exc}",
+                file=sys.stderr,
+            )
+            if not args.dry_run:
+                month = now.strftime("%Y-%m")
+                append_jsonl(
+                    LEDGER / "observed" / city_id / f"{month}.jsonl",
+                    {
+                        "captured_at_utc": now.isoformat(),
+                        "city_id": city_id,
+                        "station_id": str(city.get("aqicn_station")),
+                        "observation_gap": True,
+                        "reason": "stale_upstream_reading",
+                        "reading_time_iso": exc.time_iso,
+                        "age_hours": (
+                            round(exc.age_hours, 1) if exc.age_hours is not None else None
+                        ),
+                        "detail": str(exc),
+                    },
+                )
         except (AQICNError, KeyError, ValueError, OSError) as exc:
             # One city failing must never abort the others (CLAUDE.md §8.3).
             failed.append(city_id)
@@ -299,18 +332,32 @@ def main() -> int:
                 "captured_at_utc": now.isoformat(),
                 "captured": captured,
                 "failed": failed,
+                "stale": [{"city_id": c, "age_hours": a} for c, a in stale],
                 "skipped": skipped,
                 "dry_run": args.dry_run,
             }
         )
     )
 
-    if not captured:
+    if failed:
+        # A real reachability/parsing failure — the thing this script itself
+        # could be wrong about, or a genuine outage worth paging on. This,
+        # and only this, is what should ever turn the workflow red: a dead
+        # third party must not (CLAUDE.md §20 — a permanently red workflow
+        # for a condition nobody can act on teaches everyone to ignore the
+        # red X, which is exactly what destroys D8's uptime evidence).
         print(
-            "[error] every city failed — the ledger has a permanent gap for this hour",
+            f"[error] real failure — could not reach or parse: {', '.join(failed)}",
             file=sys.stderr,
         )
         return 1
+    if stale:
+        ages = ", ".join(f"{c}: {a:.1f}h" for c, a in stale if a is not None)
+        print(
+            f"[warn] upstream feed(s) stale but reachable ({ages}) — gap "
+            "recorded to the ledger per I3/ADR-034, not a script failure",
+            file=sys.stderr,
+        )
     return 0
 
 
