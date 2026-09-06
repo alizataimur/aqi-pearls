@@ -1,0 +1,24 @@
+# Streamlit theme for the Pearls AQI Predictor dashboard.
+#
+# These set the base colours Streamlit paints before any custom CSS runs, so
+# widgets, the sidebar and native components match the design instead of
+# fighting it. Custom CSS in streamlit_app.py handles everything else.
+#
+# Palette: near-black slate with a cyan bias, teal accent. Cyan is chosen
+# deliberately — the six EPA AQI category colours run green → yellow → orange
+# → red → purple → maroon, and none of them is cyan, so the chrome never
+# collides with the data encoding.
+
+[theme]
+base = "dark"
+primaryColor = "#2BB3C9"
+backgroundColor = "#0B1416"
+secondaryBackgroundColor = "#111E22"
+textColor = "#E6EEF0"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

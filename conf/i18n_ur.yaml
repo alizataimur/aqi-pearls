@@ -31,6 +31,9 @@ health_guidance:
   Hazardous:
     en: "Health emergency: everyone should avoid all outdoor exertion and stay indoors."
     ur: "صحت کی ایمرجنسی: سب افراد ہر قسم کی بیرونی سرگرمی سے مکمل پرہیز کریں اور گھر کے اندر رہیں۔"
+  "Beyond the scale":
+    en: "Concentrations exceed the published AQI scale. Stay indoors, avoid all outdoor exertion, and treat this as an emergency-level exposure."
+    ur: "آلودگی شائع شدہ AQI پیمانے سے تجاوز کر گئی ہے۔ گھر کے اندر رہیں، ہر قسم کی بیرونی سرگرمی سے مکمل پرہیز کریں، اور اسے ہنگامی سطح کی نمائش سمجھیں۔"
 
 alerts:
   episode:

@@ -31,6 +31,7 @@ __all__ = [
     "Pollutant",
     "aqi_from_24h_mean",
     "aqi_nowcast",
+    "breakpoints_for",
     "category_for",
     "overall_aqi",
     "ugm3_to_epa_units",
@@ -215,6 +216,16 @@ def _index_from_concentration(conc: float, pollutant: Pollutant) -> int:
     # Above the highest defined breakpoint: report the top of the scale rather
     # than raising. The caller can see exceeds_scale on the result.
     return table[-1][3]
+
+
+def breakpoints_for(pollutant: Pollutant) -> tuple[tuple[float, float, int, int], ...]:
+    """The (C_low, C_high, I_low, I_high) breakpoint rows for one pollutant —
+    the same table `aqi_from_24h_mean`/`aqi_nowcast` compute from. Exposed
+    read-only so a caller that wants to *display* the real breakpoints (e.g.
+    the dashboard's Health Guidance tab) reads them from here rather than
+    keeping a second, hand-typed copy that could silently drift from I8's
+    single authority."""
+    return _BREAKPOINTS[pollutant]
 
 
 def category_for(aqi: int) -> tuple[str, str]:
