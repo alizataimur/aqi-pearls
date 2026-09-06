@@ -151,6 +151,7 @@ def explain(zone_id: str = "capital", horizon_hours: int = 24) -> ExplainRespons
             )
             for d in result.top_drivers
         ],
+        n_features=result.n_features,
         briefing_en=result.briefing_en,
         briefing_ur=result.briefing_ur,
         explainer_note=result.explainer_note,

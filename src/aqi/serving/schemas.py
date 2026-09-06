@@ -58,6 +58,7 @@ class ExplainResponse(BaseModel):
     predicted_aqi: float
     base_value: float
     top_drivers: list[DriverContribution]
+    n_features: int
     briefing_en: str
     briefing_ur: str
     explainer_note: str

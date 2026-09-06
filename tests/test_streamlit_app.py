@@ -182,3 +182,27 @@ def test_health_band_headers_wrap_units_to_survive_uppercase_transform() -> None
         assert '<span style="text-transform:none">µg/m³</span>' in html
         assert "MG/M³" not in html
         assert "ΜG/M³" not in html  # noqa: RUF001 — Greek capital mu, the mangled form
+
+
+@pytest.mark.skipif(not _HAS_SNAPSHOT, reason="needs reports/dashboard_snapshot.json")
+def test_shap_residual_reconciles_displayed_bars_to_the_anchor() -> None:
+    """The point of the residual row: displayed contributions + residual
+    must equal (prediction - base) within floating-point tolerance, on
+    real driver data — not a synthetic example. If a future edit to the
+    residual formula (or to what `top` contains when it's computed) ever
+    breaks that identity, this is what catches it; the anchor line and the
+    residual bar would otherwise silently stop reconciling."""
+    sys.path.insert(0, str(REPO_ROOT / "app"))
+    sys.modules.pop("streamlit_app", None)
+    import streamlit_app as app
+
+    explanation = app.load_shap("capital", 24)
+    assert explanation is not None
+    drivers = explanation["top_drivers"]
+    contributions = [d["shap_value"] for d in drivers]
+    base_value = explanation["base_value"]
+    prediction = explanation["predicted_aqi"]
+
+    residual = app._shap_residual(contributions, base_value, prediction)
+
+    assert abs((sum(contributions) + residual) - (prediction - base_value)) < 1e-6

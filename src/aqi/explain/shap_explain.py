@@ -59,6 +59,13 @@ class ExplainResult:
     predicted_aqi: float
     base_value: float
     top_drivers: list[DriverContribution]
+    n_features: int
+    """Total admitted feature count SHAP actually explained (`len(loaded.
+    feature_columns)`) — not just `len(top_drivers)`. By SHAP's additivity
+    property, `predicted_aqi - base_value` equals the sum of *all*
+    `n_features` contributions, not only the ones named in `top_drivers`;
+    a caller reconciling the displayed bars to the anchor needs this count
+    to state how many features it isn't showing individually."""
     briefing_en: str
     briefing_ur: str
     explainer_note: str = EXPLAINER_NOTE
@@ -172,6 +179,7 @@ def explain_zone(
         predicted_aqi=predicted,
         base_value=base_value,
         top_drivers=drivers,
+        n_features=len(loaded.feature_columns),
         briefing_en=briefing_en,
         briefing_ur=briefing_ur,
     )

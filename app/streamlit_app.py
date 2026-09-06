@@ -523,7 +523,12 @@ def load_shap(zone: str, horizon_h: int) -> dict[str, Any] | None:
     `"contribution"` shape this stub was written against): `{"zone_id",
     "horizon_hours", "predicted_aqi", "base_value", "top_drivers": [
     {"feature", "feature_label_en", "feature_label_ur", "value",
-    "shap_value"}, ...], "briefing_en", "briefing_ur", "explainer_note"}`.
+    "shap_value"}, ...], "n_features", "briefing_en", "briefing_ur",
+    "explainer_note"}`. `n_features` is the *total* admitted feature count
+    SHAP explained, not `len(top_drivers)` — by SHAP's additivity property,
+    `predicted_aqi - base_value` sums all of them, and the gap between that
+    and the sum of the displayed bars is the other `n_features -
+    len(top_drivers)` features' combined effect (the chart's residual row).
     """
     data = _api_get("/explain", {"zone_id": zone, "horizon_hours": horizon_h})
     if data is not None:
@@ -550,6 +555,7 @@ def load_shap(zone: str, horizon_h: int) -> dict[str, Any] | None:
                     }
                     for d in result.top_drivers
                 ],
+                "n_features": result.n_features,
                 "briefing_en": result.briefing_en,
                 "briefing_ur": result.briefing_ur,
                 "explainer_note": result.explainer_note,
@@ -953,6 +959,19 @@ def base_layout(height: int = 340, ytitle: str = "") -> dict[str, Any]:
         hovermode="x unified",
         showlegend=False,
     )
+
+
+def _shap_residual(
+    displayed_contributions: list[float], base_value: float, prediction: float
+) -> float:
+    """(prediction - base) minus the sum of the displayed contributions —
+    the combined effect of every feature SHAP explained but the chart
+    doesn't show individually (SHAP's additivity property means the full
+    set sums exactly to `prediction - base`; `top_drivers` only ever
+    carries a subset). Always computed fresh from the driver dict, never a
+    fixed or assumed number — see tests/test_streamlit_app.py for the
+    reconciliation check this makes possible."""
+    return prediction - base_value - sum(displayed_contributions)
 
 
 # --------------------------------------------------------------------------
@@ -1477,6 +1496,36 @@ def tab_shap(zone: str) -> None:
     # only if an older snapshot never carried the label fields.
     label_col = "feature_label_en" if "feature_label_en" in top.columns else "feature"
 
+    base_value = explanation.get("base_value")
+    prediction = explanation.get("predicted_aqi")
+    n_features_total = explanation.get("n_features")
+
+    # The residual: SHAP's additivity property means (prediction - base)
+    # equals the sum of *every* feature's contribution, not just the ones
+    # displayed. Showing the anchor without accounting for the rest invites
+    # exactly the arithmetic check this closes: displayed bars + residual
+    # must equal (prediction - base), always computed here, never a fixed
+    # or assumed number.
+    residual_row: pd.DataFrame | None = None
+    if isinstance(base_value, int | float) and isinstance(prediction, int | float):
+        residual = _shap_residual(
+            top[contrib_col].tolist(), float(base_value), float(prediction)
+        )
+        n_other = (
+            n_features_total - len(top) if isinstance(n_features_total, int) else None
+        )
+        residual_label = (
+            f"+ {n_other} other features" if n_other is not None else "+ other features"
+        )
+        residual_row = pd.DataFrame(
+            {label_col: [residual_label], contrib_col: [residual]}
+        )
+        top = pd.concat([residual_row, top], ignore_index=True)
+
+    is_residual = [False] * (len(top) - (1 if residual_row is not None else 0))
+    if residual_row is not None:
+        is_residual = [True, *is_residual]
+
     fig = go.Figure()
     fig.add_trace(
         go.Bar(
@@ -1484,7 +1533,8 @@ def tab_shap(zone: str) -> None:
             x=top[contrib_col],
             orientation="h",
             marker_color=[
-                "#E5544B" if v > 0 else SHAP_NEGATIVE for v in top[contrib_col]
+                INK_FAINT if grey else ("#E5544B" if v > 0 else SHAP_NEGATIVE)
+                for grey, v in zip(is_residual, top[contrib_col], strict=True)
             ],
             hovertemplate="%{y}<br>%{x:+.2f} AQI points<extra></extra>",
         )
@@ -1499,8 +1549,6 @@ def tab_shap(zone: str) -> None:
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
-    base_value = explanation.get("base_value")
-    prediction = explanation.get("predicted_aqi")
     if isinstance(base_value, int | float) and isinstance(prediction, int | float):
         anchor_line = f"base {base_value:.0f} → predicted {prediction:.0f}. "
     else:
@@ -1511,9 +1559,10 @@ def tab_shap(zone: str) -> None:
     st.markdown(
         f'<p class="sec-note" style="margin-top:0.4rem">{anchor_line}'
         f'<span style="color:#E5544B">Red</span> pushes the forecast up; '
-        f'<span style="color:{SHAP_NEGATIVE}">blue</span> pulls it down. '
-        f"Bars are ordered by magnitude, so the top of the chart is what actually "
-        f"drove this number.</p>",
+        f'<span style="color:{SHAP_NEGATIVE}">blue</span> pulls it down; '
+        f'<span style="color:{INK_FAINT}">grey</span> is the combined effect '
+        f"of features not shown individually. Bars are ordered by magnitude, "
+        f"so the top of the chart is what actually drove this number.</p>",
         unsafe_allow_html=True,
     )
 
