@@ -58,6 +58,11 @@ RULE = "#23383E"
 ACCENT = "#2BB3C9"
 ACCENT_DIM = "#14606E"
 AMBER = "#E8C547"  # staleness warning — reused, not a new arbitrary hue
+# SHAP chart, negative-contribution bars only. Distinct from ACCENT
+# deliberately — ACCENT is this interface's own chrome colour (masthead,
+# eyebrows, links), used everywhere; reusing it as a *data* colour risks a
+# reader mistaking "this bar is teal" for "this bar is interactive chrome".
+SHAP_NEGATIVE = "#5C7CFA"
 
 # Band-tinted card fills (I5.5-adjacent design constraint, not a config
 # value): the fraction of the AQI band colour blended over SURFACE for a
@@ -1457,27 +1462,56 @@ def tab_shap(zone: str) -> None:
     frame[contrib_col] = pd.to_numeric(frame[contrib_col], errors="coerce")
     frame = frame.dropna(subset=[contrib_col])
     frame["abs"] = frame[contrib_col].abs()
-    top = frame.nlargest(12, "abs").sort_values(contrib_col)
+    # Plotly renders a horizontal bar chart's first row at the BOTTOM and its
+    # last row at the TOP. Sorting ascending by |contribution| puts the
+    # smallest-magnitude driver first (bottom) and the largest last (top) —
+    # matching what the caption below actually promises. The previous
+    # `sort_values(contrib_col)` sorted by signed value, so a strongly
+    # *negative* top driver could land at the bottom despite being the
+    # biggest driver.
+    top = frame.nlargest(12, "abs").sort_values("abs", ascending=True)
+
+    # Same label mapping the briefing prose already reads
+    # (feature_label_en/_ur, from explain/shap_explain.py — one mapping,
+    # not a second one re-derived here) — falls back to the raw column name
+    # only if an older snapshot never carried the label fields.
+    label_col = "feature_label_en" if "feature_label_en" in top.columns else "feature"
 
     fig = go.Figure()
     fig.add_trace(
         go.Bar(
-            y=top["feature"].astype(str),
+            y=top[label_col].astype(str),
             x=top[contrib_col],
             orientation="h",
-            marker_color=["#E5544B" if v > 0 else ACCENT for v in top[contrib_col]],
+            marker_color=[
+                "#E5544B" if v > 0 else SHAP_NEGATIVE for v in top[contrib_col]
+            ],
             hovertemplate="%{y}<br>%{x:+.2f} AQI points<extra></extra>",
         )
     )
     layout = base_layout(max(340, 30 * len(top)), "")
     layout["xaxis"]["title"] = "Contribution to the forecast (AQI points)"
+    # base_layout's "x unified" is meant for shared-x-axis charts (multiple
+    # traces against one time axis); on a single-trace horizontal bar it
+    # overrides the hovertemplate above and prints the raw float instead of
+    # "-3.32 AQI points". "closest" respects the hovertemplate.
+    layout["hovermode"] = "closest"
     fig.update_layout(**layout)
     st.plotly_chart(fig, use_container_width=True)
 
+    base_value = explanation.get("base_value")
+    prediction = explanation.get("predicted_aqi")
+    if isinstance(base_value, int | float) and isinstance(prediction, int | float):
+        anchor_line = f"base {base_value:.0f} → predicted {prediction:.0f}. "
+    else:
+        anchor_line = (
+            "Base value or predicted AQI is missing from this explanation, so "
+            "the chart's deviations cannot be anchored to a starting point. "
+        )
     st.markdown(
-        f'<p class="sec-note" style="margin-top:0.4rem">'
+        f'<p class="sec-note" style="margin-top:0.4rem">{anchor_line}'
         f'<span style="color:#E5544B">Red</span> pushes the forecast up; '
-        f'<span style="color:{ACCENT}">teal</span> pulls it down. '
+        f'<span style="color:{SHAP_NEGATIVE}">blue</span> pulls it down. '
         f"Bars are ordered by magnitude, so the top of the chart is what actually "
         f"drove this number.</p>",
         unsafe_allow_html=True,
@@ -1513,7 +1547,7 @@ def tab_shap(zone: str) -> None:
 
 
 def tab_health(zone: str) -> None:
-    section("Health guidance", "What each band means")
+    st.markdown('<div class="eyebrow">Health guidance</div>', unsafe_allow_html=True)
 
     now = current_conditions(zone)
     observed_raw = now.get("observed_at") or now.get("timestamp") if now else None
@@ -1567,6 +1601,10 @@ def tab_health(zone: str) -> None:
             unsafe_allow_html=True,
         )
 
+    st.markdown(
+        '<div class="sec-title" style="margin-top:1.4rem">What each band means</div>',
+        unsafe_allow_html=True,
+    )
     st.write("")
 
     for low, high, name, colour, _urdu in AQI_BANDS:

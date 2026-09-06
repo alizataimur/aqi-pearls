@@ -74,3 +74,20 @@ class TestExplainZone:
 
         magnitudes = [abs(d.shap_value) for d in result.top_drivers]
         assert magnitudes == sorted(magnitudes, reverse=True)
+
+    def test_briefing_pluralises_day_correctly(self) -> None:
+        """D+1 (24h -> 1 day) must read "1 day", never "1 day(s)" or
+        "1 days"; D+2/D+3 must read "2 days"/"3 days"."""
+        from aqi.explain.shap_explain import explain_zone
+        from aqi.serving.inference import load_frame_cached, zones
+
+        frame = load_frame_cached()
+        zone_id = zones()[0].zone_id
+
+        result_d1 = explain_zone(frame, zone_id, 24)
+        assert "in 1 day," in result_d1.briefing_en
+        assert "day(s)" not in result_d1.briefing_en
+        assert "1 days" not in result_d1.briefing_en
+
+        result_d2 = explain_zone(frame, zone_id, 48)
+        assert "in 2 days," in result_d2.briefing_en

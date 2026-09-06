@@ -115,13 +115,14 @@ def _briefing(
 ) -> tuple[str, str]:
     city_en, city_ur = _zone_names(zone_id)
     horizon_days = horizon_hours // 24
+    day_word = "day" if horizon_days == 1 else "days"
     top_two = drivers[:2]
     driver_en = " and ".join(d.label_en for d in top_two) or "no single dominant factor"
     driver_ur = " اور ".join(d.label_ur for d in top_two) or "کوئی ایک غالب عنصر نہیں"
 
     briefing_en = (
         f"LightGBM predicts {city_en}'s daily max AQI at {predicted:.0f} "
-        f"({category_en}) in {horizon_days} day(s), driven mainly by {driver_en}."
+        f"({category_en}) in {horizon_days} {day_word}, driven mainly by {driver_en}."
     )
     briefing_ur = (
         f"لائٹ جی بی ایم کے مطابق {city_ur} کا یومیہ زیادہ سے زیادہ AQI "
