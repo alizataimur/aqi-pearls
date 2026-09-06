@@ -159,3 +159,26 @@ class TestForecastStaleGuard:
         assert app._parse_local_date(None) is None
         assert app._parse_local_date("") is None
         assert app._parse_local_date("not-a-date") is None
+
+
+def test_health_band_headers_wrap_units_to_survive_uppercase_transform() -> None:
+    """`.hg-head`'s `text-transform: uppercase` is a CSS rendering effect —
+    invisible to pytest, which only ever sees the HTML source string, never
+    a browser's painted output. So this checks the actual structural fix:
+    the PM2.5 range's "µg/m³" is wrapped in its own `text-transform: none`
+    span, present verbatim (never mangled to "MG/M³", an uppercased Greek
+    mu that reads as milligrams — wrong by 1000x on a health page) in the
+    source this Python code emits."""
+    at = AppTest.from_file(str(APP_PATH), default_timeout=60)
+    at.run()
+    assert not at.exception
+
+    band_cards = [md.value for md in at.markdown if 'class="hg-head"' in md.value]
+    assert band_cards, "expected at least one rendered health-guidance band card"
+
+    cards_with_units = [html for html in band_cards if "µg/m³" in html]
+    assert cards_with_units, "no band card rendered a PM2.5 range with units"
+    for html in cards_with_units:
+        assert '<span style="text-transform:none">µg/m³</span>' in html
+        assert "MG/M³" not in html
+        assert "ΜG/M³" not in html  # noqa: RUF001 — Greek capital mu, the mangled form

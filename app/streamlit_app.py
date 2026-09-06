@@ -153,6 +153,8 @@ h1, h2, h3, h4 {{ font-family: Archivo, system-ui, sans-serif; letter-spacing: -
     color: {INK_FAINT}; letter-spacing: 0.02em;
 }}
 .masthead .strip b {{ color: {ACCENT}; font-weight: 500; }}
+.masthead-link {{ color: {ACCENT}; text-decoration: none; font-weight: 500; }}
+.masthead-link:hover {{ text-decoration: underline; }}
 
 /* ---- eyebrow + section heads ---- */
 .eyebrow {{
@@ -188,12 +190,20 @@ h1, h2, h3, h4 {{ font-family: Archivo, system-ui, sans-serif; letter-spacing: -
     font-family: Archivo, sans-serif; font-size: 1.35rem; font-weight: 600;
     color: {INK}; margin: 0 0 0.3rem 0;
 }}
-.sec-note {{ color: {INK_SOFT}; font-size: 0.92rem; margin: 0 0 1.1rem 0; max-width: 74ch; }}
+.sec-note {{
+    color: {INK_SOFT}; font-size: 0.92rem; margin: 0 0 1.1rem 0; max-width: 74ch;
+}}
 
 /* ---- metric tiles ---- */
-.tiles {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1px;
-          background: {RULE}; border: 1px solid {RULE}; border-radius: 4px; overflow: hidden; }}
-.tile {{ background: {SURFACE}; padding: 1.05rem 1.15rem; display: flex; flex-direction: column; gap: 0.25rem; }}
+.tiles {{
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1px; background: {RULE}; border: 1px solid {RULE}; border-radius: 4px;
+    overflow: hidden;
+}}
+.tile {{
+    background: {SURFACE}; padding: 1.05rem 1.15rem; display: flex;
+    flex-direction: column; gap: 0.25rem;
+}}
 .tile .k {{ font-family: Archivo, sans-serif; font-size: 0.68rem; font-weight: 600;
             letter-spacing: 0.1em; text-transform: uppercase; color: {INK_FAINT}; }}
 .tile .v {{ font-family: 'IBM Plex Mono', monospace; font-size: 1.85rem; font-weight: 600;
@@ -204,21 +214,32 @@ h1, h2, h3, h4 {{ font-family: Archivo, system-ui, sans-serif; letter-spacing: -
 /* ---- AQI hero ---- */
 .hero {{
     background: {SURFACE}; border: 1px solid {RULE}; border-left: 5px solid var(--band);
-    border-radius: 4px; padding: 1.5rem 1.7rem; display: flex; flex-direction: column; gap: 0.5rem;
+    border-radius: 4px; padding: 1.5rem 1.7rem; display: flex; flex-direction: column;
+    gap: 0.5rem;
 }}
-.hero .num {{ font-family: 'IBM Plex Mono', monospace; font-size: 4.2rem; font-weight: 600;
-              line-height: 0.9; color: var(--band); font-variant-numeric: tabular-nums; }}
-.hero .cat {{ font-family: Archivo, sans-serif; font-size: 1.15rem; font-weight: 600; color: {INK}; }}
+.hero .num {{
+    font-family: 'IBM Plex Mono', monospace; font-size: 4.2rem; font-weight: 600;
+    line-height: 0.9; color: var(--band); font-variant-numeric: tabular-nums;
+}}
+.hero .cat {{
+    font-family: Archivo, sans-serif; font-size: 1.15rem; font-weight: 600; color: {INK};
+}}
 .hero .cat-ur {{ font-size: 1.05rem; color: {INK_SOFT}; direction: rtl; }}
-.hero .meta {{ font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; color: {INK_FAINT}; }}
+.hero .meta {{
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; color: {INK_FAINT};
+}}
 
 /* ---- forecast cards ---- */
-.fc {{ background: {SURFACE}; border: 1px solid {RULE}; border-top: 3px solid var(--band);
-       border-radius: 4px; padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.3rem;
-       height: 100%; }}
+.fc {{
+    background: {SURFACE}; border: 1px solid {RULE}; border-top: 3px solid var(--band);
+    border-radius: 4px; padding: 1.1rem 1.2rem; display: flex; flex-direction: column;
+    gap: 0.3rem; height: 100%;
+}}
 .fc .h {{ font-family: Archivo, sans-serif; font-size: 0.72rem; font-weight: 600;
           letter-spacing: 0.11em; text-transform: uppercase; color: {ACCENT}; }}
-.fc .d {{ font-family: 'IBM Plex Mono', monospace; font-size: 0.76rem; color: {INK_FAINT}; }}
+.fc .d {{
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.76rem; color: {INK_FAINT};
+}}
 .fc .n {{ font-family: 'IBM Plex Mono', monospace; font-size: 2.5rem; font-weight: 600;
           line-height: 1; color: var(--band); font-variant-numeric: tabular-nums; }}
 .fc .c {{ font-size: 0.86rem; color: {INK}; }}
@@ -270,7 +291,27 @@ h1, h2, h3, h4 {{ font-family: Archivo, system-ui, sans-serif; letter-spacing: -
 }}
 .hg-row {{ display: flex; gap: 1.2rem; margin-top: 0.4rem; }}
 .hg-en {{ flex: 1 1 50%; font-size: 0.86rem; color: {INK}; }}
-.hg-ur {{ flex: 1 1 50%; font-size: 0.86rem; color: {INK_SOFT}; direction: rtl; text-align: right; }}
+.hg-ur {{
+    flex: 1 1 50%; font-size: 0.86rem; color: {INK_SOFT}; direction: rtl;
+    text-align: right;
+}}
+
+/* ---- health guidance: live advisory for the current reading ---- */
+.hg-advisory {{
+    background: {SURFACE}; border: 1px solid {RULE}; border-left: 5px solid var(--band);
+    border-radius: 4px; padding: 1.4rem 1.6rem; margin-bottom: 1rem;
+}}
+.hg-advisory-head {{
+    display: flex; align-items: baseline; gap: 0.9rem; margin-top: 0.5rem;
+}}
+.hg-advisory-aqi {{
+    font-family: 'IBM Plex Mono', monospace; font-size: 2.6rem; font-weight: 600;
+    color: var(--band); font-variant-numeric: tabular-nums;
+}}
+.hg-advisory-cat {{
+    font-family: Archivo, sans-serif; font-size: 1.1rem; font-weight: 600; color: {INK};
+}}
+.hg-advisory-cat-ur {{ font-size: 1rem; color: {INK_SOFT}; direction: rtl; }}
 
 /* ---- feature group chips ---- */
 .groups {{ display: flex; flex-wrap: wrap; gap: 0.5rem; }}
@@ -867,11 +908,14 @@ def tiles(items: list[tuple[str, str, str]], accent_first: bool = False) -> None
 
 
 def provenance(
-    *sources: str, lead_in: str = "Every figure on this tab is read from"
+    *sources: str,
+    lead_in: str = "Every figure on this tab is read from",
+    note: str = "",
 ) -> None:
     body = " &nbsp;·&nbsp; ".join(f"<b>{s}</b>" for s in sources)
+    note_html = f" {note}" if note else ""
     st.markdown(
-        f'<div class="prov">{lead_in}: {body}</div>',
+        f'<div class="prov">{lead_in}: {body}{note_html}</div>',
         unsafe_allow_html=True,
     )
 
@@ -895,8 +939,11 @@ def base_layout(height: int = 340, ytitle: str = "") -> dict[str, Any]:
         font=dict(family="IBM Plex Sans, sans-serif", color=INK_SOFT, size=12),
         xaxis=dict(gridcolor=RULE, zeroline=False, linecolor=RULE, tickcolor=RULE),
         yaxis=dict(
-            title=ytitle, gridcolor=RULE, zeroline=False,
-            linecolor=RULE, tickcolor=RULE,
+            title=ytitle,
+            gridcolor=RULE,
+            zeroline=False,
+            linecolor=RULE,
+            tickcolor=RULE,
         ),
         hovermode="x unified",
         showlegend=False,
@@ -934,14 +981,14 @@ def tab_live(zone: str) -> None:
             unavailable("Current conditions", PATH_SNAPSHOT.relative_to(REPO_ROOT))
         else:
             aqi = now.get("aqi") or now.get("us_aqi") or now.get("nowcast_aqi")
-            aqi_val = float(aqi) if isinstance(aqi, (int, float)) else None
+            aqi_val = float(aqi) if isinstance(aqi, int | float) else None
             name, colour, urdu = band_for(aqi_val)
             hero_bg = _tint_over_surface(colour, HERO_TINT)
             shown = f"{aqi_val:.0f}" if aqi_val is not None else "—"
             observed = format_local_timestamp(observed_raw) if observed_raw else "—"
             age_suffix = f" · {format_age(age)}" if age is not None else ""
             pm = now.get("pm2_5")
-            pm_line = f"PM2.5 {pm:.1f} µg/m³ · " if isinstance(pm, (int, float)) else ""
+            pm_line = f"PM2.5 {pm:.1f} µg/m³ · " if isinstance(pm, int | float) else ""
             st.markdown(
                 f'<div class="hero" style="--band:{colour};background:{hero_bg}">'
                 f'<div class="num">{shown}</div>'
@@ -985,9 +1032,7 @@ def tab_live(zone: str) -> None:
                     target = str(row.get("target_date") or "")[:10]
                     value = row.get("predicted_aqi")
                     shown = (
-                        f"{float(value):.0f}"
-                        if isinstance(value, int | float)
-                        else "—"
+                        f"{float(value):.0f}" if isinstance(value, int | float) else "—"
                     )
                     item_bits.append(
                         f'<div class="row-item"><b>{label}</b> {target} · {shown}</div>'
@@ -1005,17 +1050,15 @@ def tab_live(zone: str) -> None:
                     horizon = row.get("horizon_h") or row.get("horizon") or 0
                     label = HORIZON_LABELS.get(int(horizon), f"+{horizon}h")
                     value = (
-                        row.get("y_pred")
-                        or row.get("predicted_aqi")
-                        or row.get("aqi")
+                        row.get("y_pred") or row.get("predicted_aqi") or row.get("aqi")
                     )
-                    val = float(value) if isinstance(value, (int, float)) else None
+                    val = float(value) if isinstance(value, int | float) else None
                     name, colour, urdu = band_for(val)
                     fc_bg = _tint_over_surface(colour, FORECAST_TINT)
                     shown = f"{val:.0f}" if val is not None else "—"
-                    target = str(
-                        row.get("target_date") or row.get("target_time") or ""
-                    )[:10]
+                    target = str(row.get("target_date") or row.get("target_time") or "")[
+                        :10
+                    ]
                     with col:
                         st.markdown(
                             f'<div class="fc" style="--band:{colour};background:{fc_bg}">'
@@ -1034,9 +1077,12 @@ def tab_live(zone: str) -> None:
         fig = go.Figure()
         fig.add_trace(
             go.Scatter(
-                x=hist["ts"], y=hist["pm2_5"], mode="lines",
+                x=hist["ts"],
+                y=hist["pm2_5"],
+                mode="lines",
                 line=dict(color=ACCENT, width=1.8),
-                fill="tozeroy", fillcolor="rgba(43,179,201,0.10)",
+                fill="tozeroy",
+                fillcolor="rgba(43,179,201,0.10)",
                 name="PM2.5",
                 hovertemplate="%{x|%d %b %H:%M} · %{y:.1f} µg/m³<extra></extra>",
             )
@@ -1070,7 +1116,9 @@ def tab_trends(zone: str) -> None:
     )
     days = {"Week": 7, "Month": 30, "Year": 365}[window]
     rule = {"Week": "3h", "Month": "1D", "Year": "1W"}[window]
-    agg_label = {"Week": "3-hourly mean", "Month": "daily max", "Year": "weekly max"}[window]
+    agg_label = {"Week": "3-hourly mean", "Month": "daily max", "Year": "weekly max"}[
+        window
+    ]
 
     hist = load_history(zone, days)
     if hist is None:
@@ -1078,25 +1126,36 @@ def tab_trends(zone: str) -> None:
         return
 
     series = hist.set_index("ts")["pm2_5"]
-    resampled = series.resample(rule).max() if window != "Week" else series.resample(rule).mean()
+    resampled = (
+        series.resample(rule).max() if window != "Week" else series.resample(rule).mean()
+    )
     resampled = resampled.dropna()
 
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=resampled.index, y=resampled.to_numpy(), mode="lines",
+            x=resampled.index,
+            y=resampled.to_numpy(),
+            mode="lines",
             line=dict(color=ACCENT, width=2),
-            fill="tozeroy", fillcolor="rgba(43,179,201,0.12)",
+            fill="tozeroy",
+            fillcolor="rgba(43,179,201,0.12)",
             hovertemplate="%{x|%d %b %Y} · %{y:.1f} µg/m³<extra></extra>",
         )
     )
     # The two thresholds this project actually acts on, drawn to the same scale.
-    for level, colour, text in ((55.5, "#E5544B", "AQI 151"), (125.5, "#A661C4", "AQI 201")):
+    thresholds = ((55.5, "#E5544B", "AQI 151"), (125.5, "#A661C4", "AQI 201"))
+    for level, colour, text in thresholds:
         if float(resampled.max()) > level * 0.6:
             fig.add_hline(
-                y=level, line_dash="dot", line_color=colour, line_width=1,
-                annotation_text=text, annotation_position="right",
-                annotation_font_color=colour, annotation_font_size=11,
+                y=level,
+                line_dash="dot",
+                line_color=colour,
+                line_width=1,
+                annotation_text=text,
+                annotation_position="right",
+                annotation_font_color=colour,
+                annotation_font_size=11,
             )
     fig.update_layout(**base_layout(400, f"PM2.5 µg/m³ ({agg_label})"))
     st.plotly_chart(fig, use_container_width=True)
@@ -1127,7 +1186,8 @@ def tab_model() -> None:
     ladder = load_ladder()
     if not ladder:
         unavailable(
-            "Ladder table", PATH_LADDER.relative_to(REPO_ROOT),
+            "Ladder table",
+            PATH_LADDER.relative_to(REPO_ROOT),
             "Run the training pipeline to generate it.",
         )
         return
@@ -1167,8 +1227,11 @@ def tab_model() -> None:
                 )
 
     if not rows:
-        unavailable("Ladder table", PATH_LADDER.relative_to(REPO_ROOT),
-                    "The file exists but no rows could be read from it.")
+        unavailable(
+            "Ladder table",
+            PATH_LADDER.relative_to(REPO_ROOT),
+            "The file exists but no rows could be read from it.",
+        )
         return
 
     table = pd.DataFrame(rows)
@@ -1204,14 +1267,19 @@ def tab_model() -> None:
             for i, col in enumerate(order):
                 fig.add_trace(
                     go.Bar(
-                        y=pivot.index, x=pivot[col], name=col, orientation="h",
+                        y=pivot.index,
+                        x=pivot[col],
+                        name=col,
+                        orientation="h",
                         marker_color=shades[i % len(shades)],
                         hovertemplate=f"%{{y}} · {col} · RMSE %{{x:.2f}}<extra></extra>",
                     )
                 )
             layout = base_layout(max(320, 34 * len(pivot)), "")
             layout["showlegend"] = True
-            layout["legend"] = dict(orientation="h", y=1.08, x=0, font=dict(color=INK_SOFT))
+            layout["legend"] = dict(
+                orientation="h", y=1.08, x=0, font=dict(color=INK_SOFT)
+            )
             layout["barmode"] = "group"
             layout["xaxis"]["title"] = "RMSE (AQI points, lower is better)"
             fig.update_layout(**layout)
@@ -1249,11 +1317,14 @@ def tab_features() -> None:
         unavailable("Feature specification", PATH_FEATURES.relative_to(REPO_ROOT))
     else:
         n = summary.get("n_features")
+        n_shown = f"{n:,}" if isinstance(n, int) else "—"
+        n_groups = str(len(summary.get("groups", {})))
+        n_min_lag = f"{summary.get('declares_min_lag', 0):,}"
         tiles(
             [
-                ("Features", f"{n:,}" if isinstance(n, int) else "—", "declared in conf/"),
-                ("Groups", str(len(summary.get("groups", {}))), "pollutant · weather · time · physics"),
-                ("Declare min_lag", f"{summary.get('declares_min_lag', 0):,}", "I1 enforced mechanically"),
+                ("Features", n_shown, "declared in conf/"),
+                ("Groups", n_groups, "pollutant · weather · time · physics"),
+                ("Declare min_lag", n_min_lag, "I1 enforced mechanically"),
                 ("History", "2022-08", "probed CAMS floor"),
             ],
             accent_first=True,
@@ -1274,20 +1345,45 @@ def tab_features() -> None:
         "Punjab's winter smog has a mechanism, and these encode it directly "
         "rather than hoping a tree finds it.",
     )
+    # Ruff's ambiguous-unicode-character rule fires below on the minus
+    # sign, multiplication sign and en dashes used as deliberate typography
+    # in this visible copy (a formula and two date ranges) - each is
+    # individually exempted per line rather than changed, since changing
+    # the character would change what is actually shown on screen.
     physics = pd.DataFrame(
         [
-            ("inversion_proxy", "temperature_850hPa − temperature_2m",
-             "Positive means an inversion is capping the boundary layer — the mechanism behind Punjab winter smog"),
-            ("stagnation_index", "rolling-24h low wind × high humidity × low BLH",
-             "Pollution accumulates when air does not move"),
-            ("ventilation_index", "boundary_layer_height × wind_speed_10m",
-             "Standard dispersion capacity"),
-            ("crop_burning_season", "Oct 15 – Nov 30 flag + day-count",
-             "Regional stubble-burning window"),
-            ("heating_season", "Dec 1 – Feb 15 flag",
-             "Residential biomass and coal"),
-            ("festival_flag", "tabulated in conf/calendar_pk.yaml",
-             "Islamic dates shift ~11 days a year, so a formula mis-dates them silently"),
+            (
+                "inversion_proxy",
+                "temperature_850hPa − temperature_2m",  # noqa: RUF001
+                "Positive means an inversion is capping the boundary layer — "
+                "the mechanism behind Punjab winter smog",
+            ),
+            (
+                "stagnation_index",
+                "rolling-24h low wind × high humidity × low BLH",  # noqa: RUF001
+                "Pollution accumulates when air does not move",
+            ),
+            (
+                "ventilation_index",
+                "boundary_layer_height × wind_speed_10m",  # noqa: RUF001
+                "Standard dispersion capacity",
+            ),
+            (
+                "crop_burning_season",
+                "Oct 15 – Nov 30 flag + day-count",  # noqa: RUF001
+                "Regional stubble-burning window",
+            ),
+            (
+                "heating_season",
+                "Dec 1 – Feb 15 flag",  # noqa: RUF001
+                "Residential biomass and coal",
+            ),
+            (
+                "festival_flag",
+                "tabulated in conf/calendar_pk.yaml",
+                "Islamic dates shift ~11 days a year, so a formula "
+                "mis-dates them silently",
+            ),
         ],
         columns=["Feature", "Definition", "Why it matters here"],
     )
@@ -1306,7 +1402,9 @@ def tab_features() -> None:
         unsafe_allow_html=True,
     )
 
-    provenance("conf/features.yaml", "conf/calendar_pk.yaml", "reports/metrics/coverage.json")
+    provenance(
+        "conf/features.yaml", "conf/calendar_pk.yaml", "reports/metrics/coverage.json"
+    )
     footer()
 
 
@@ -1332,7 +1430,8 @@ def tab_shap(zone: str) -> None:
     explanation = load_shap(zone, horizon)
     if not explanation:
         unavailable(
-            "SHAP explanation", PATH_SNAPSHOT.relative_to(REPO_ROOT),
+            "SHAP explanation",
+            PATH_SNAPSHOT.relative_to(REPO_ROOT),
             "The snapshot carries no driver dictionary for this zone and horizon.",
         )
         provenance("src/aqi/explain/shap_explain.py", "reports/dashboard_snapshot.json")
@@ -1366,9 +1465,7 @@ def tab_shap(zone: str) -> None:
             y=top["feature"].astype(str),
             x=top[contrib_col],
             orientation="h",
-            marker_color=[
-                "#E5544B" if v > 0 else ACCENT for v in top[contrib_col]
-            ],
+            marker_color=["#E5544B" if v > 0 else ACCENT for v in top[contrib_col]],
             hovertemplate="%{y}<br>%{x:+.2f} AQI points<extra></extra>",
         )
     )
@@ -1416,19 +1513,17 @@ def tab_shap(zone: str) -> None:
 
 
 def tab_health(zone: str) -> None:
-    section(
-        "Health guidance",
-        "What each band means",
-        "All fixed strings are hand-written once and read by a native speaker. "
-        "They are never machine-translated — stilted Urdu would undercut the "
-        "accessibility claim rather than support it.",
-    )
+    section("Health guidance", "What each band means")
 
     now = current_conditions(zone)
+    observed_raw = now.get("observed_at") or now.get("timestamp") if now else None
+    age = observation_age(observed_raw)
+    is_stale = age is not None and age.total_seconds() > STALE_THRESHOLD_HOURS * 3600
+
     current_aqi = None
     if now:
         raw = now.get("aqi") or now.get("us_aqi") or now.get("nowcast_aqi")
-        if isinstance(raw, (int, float)):
+        if isinstance(raw, int | float):
             current_aqi = float(raw)
 
     # conf/i18n_ur.yaml is the authority (CLAUDE.md §14). It now covers all
@@ -1438,7 +1533,43 @@ def tab_health(zone: str) -> None:
     guidance = load_health_guidance()
     pm25_ranges = _pm25_ranges()
 
-    for low, high, name, colour, urdu in AQI_BANDS:
+    if current_aqi is None:
+        st.markdown(
+            '<div class="gone">No current reading is available for this zone, '
+            "so no live health advisory can be shown here — see the bands "
+            "below instead.</div>",
+            unsafe_allow_html=True,
+        )
+    elif is_stale:
+        assert age is not None
+        st.markdown(
+            f'<div class="gone">The current reading for this zone is '
+            f"{format_age(age)}, too stale to vouch for a live health "
+            "advisory — see the Live tab. The bands below still apply "
+            "once a fresh reading exists.</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        adv_name, adv_colour, adv_urdu = band_for(current_aqi)
+        adv_en, adv_ur = guidance.get(adv_name, ("", ""))
+        adv_bg = _tint_over_surface(adv_colour, HERO_TINT)
+        st.markdown(
+            f'<div class="hg-advisory" style="--band:{adv_colour};background:{adv_bg}">'
+            f'<div class="eyebrow">Right now, {ZONES[zone]}</div>'
+            f'<div class="hg-advisory-head">'
+            f'<span class="hg-advisory-aqi">{current_aqi:.0f}</span>'
+            f'<span class="hg-advisory-cat">{adv_name}</span>'
+            f'<span class="hg-advisory-cat-ur">{adv_urdu}</span>'
+            f"</div>"
+            f'<div class="hg-row"><div class="hg-en">{adv_en}</div>'
+            f'<div class="hg-ur">{adv_ur}</div></div>'
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.write("")
+
+    for low, high, name, colour, _urdu in AQI_BANDS:
         en, ur = guidance.get(name, ("", ""))
         is_current = current_aqi is not None and low <= current_aqi <= high
 
@@ -1446,16 +1577,23 @@ def tab_health(zone: str) -> None:
         # real EPA ceiling (the published table's own top row is 501-999) —
         # "501+" says that honestly instead of the "501-500+" bug this
         # replaces (upper was computed from `high`, independently of `low`).
-        aqi_range = f"{low:.0f}+" if high > 900 else f"{low:.0f}–{high:.0f}"
+        aqi_range = f"{low:.0f}+" if high > 900 else f"{low:.0f}–{high:.0f}"  # noqa: RUF001
 
+        # The header this feeds into is styled text-transform: uppercase
+        # (.hg-head) — CSS uppercasing "µg/m³" turns µ (MICRO SIGN) into a
+        # capital Greek mu that reads as a Latin "M", i.e. milligrams, wrong
+        # by a factor of 1000 on a health page. The unit is wrapped in its
+        # own text-transform: none span so it survives regardless of where
+        # in the header it ends up.
+        units_span = '<span style="text-transform:none">µg/m³</span>'
         header_bits = [aqi_range]
         pm_range = pm25_ranges.get(int(low))
         if pm_range is not None:
             pm_low, pm_high = pm_range
             pm_text = (
-                f"{pm_low:.1f}+ µg/m³"
+                f"{pm_low:.1f}+ {units_span}"
                 if pm_high >= 99999
-                else f"{pm_low:.1f}–{pm_high:.1f} µg/m³"
+                else f"{pm_low:.1f}–{pm_high:.1f} {units_span}"  # noqa: RUF001
             )
             header_bits.append(pm_text)
         header_bits.append(name)
@@ -1486,7 +1624,7 @@ def tab_health(zone: str) -> None:
     st.write("")
     st.markdown(
         '<div class="note"><b>Two things worth stating.</b> The scale is not clipped '
-        "at 500 — EPA's breakpoint table defines a 501–999 band above 325.5 µg/m³, and "
+        "at 500 — EPA's breakpoint table defines a 501–999 band above 325.5 µg/m³, and "  # noqa: RUF001
         "Punjab smog episodes reach it. Clipping would flatten exactly the regime this "
         "project exists to forecast. And the 2024 EPA revision is used throughout "
         "(Good now ends at 9.0 µg/m³, not 12.0), so any gap against another provider's "
@@ -1498,6 +1636,10 @@ def tab_health(zone: str) -> None:
         "conf/i18n_ur.yaml",
         "src/aqi/aqi_scale.py",
         lead_in="Strings and thresholds on this tab come from",
+        note=(
+            "All fixed strings are hand-written once and read by a native "
+            "speaker, never machine-translated."
+        ),
     )
     footer()
 
@@ -1522,11 +1664,13 @@ def main() -> None:
         f'<div class="tag">{APP_TAGLINE}</div>'
         f'<div class="strip">'
         f"<div>zones <b>2</b></div>"
-        f"<div>horizons <b>D+1 · D+2 · D+3</b></div>"
         f"<div>history from <b>2022-08-04</b></div>"
         f"<div>labels <b>CAMS reanalysis</b></div>"
         f"<div>ground truth <b>AQICN stations</b></div>"
         f"<div>store <b>{serving_backend()}</b></div>"
+        f'<div><a href="https://www.linkedin.com/in/alizataimur/" '
+        f'target="_blank" rel="noopener noreferrer" '
+        f'class="masthead-link">LinkedIn</a></div>'
         f"</div></div>",
         unsafe_allow_html=True,
     )
