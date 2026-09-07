@@ -53,9 +53,10 @@ rate."*
 | Evidence | `pytest tests/test_features.py tests/test_no_leakage.py` · `docs/feature_spec.md` · dedicated `Leakage test (I1)` CI step |
 
 **Done distinctively:** region-specific Punjab smog physics — inversion proxy, stagnation index,
-ventilation index, crop-burning window, festival calendar — built and unit-tested now; correlation
-against PM2.5 spikes is `notebooks/03_physics_features.ipynb` (session 4), and features that show
-nothing will be reported as tried-and-rejected rather than silently dropped. Every feature declares
+ventilation index, crop-burning window, festival calendar — built and unit-tested; correlation
+against PM2.5 spikes is `notebooks/03_physics_features.ipynb` (built and committed with outputs —
+5 of 6 features earn their place, `festival_flag` is tried-and-rejected, r=0.004, n=32 — ADR-037).
+Every feature declares
 a `min_lag_hours` (ADR-011) and the builder asserts it mechanically — and I1 is additionally proven
 **empirically**: `tests/test_no_leakage.py` builds a real feature vector, corrupts every actual
 reading after the issue time with a sentinel, rebuilds, and asserts nothing moved, with a positive
@@ -256,30 +257,40 @@ ledger-window statement (ADR-027); four pages ship, not five.
 
 ## Guidelines
 
-### D11 — Perform EDA to identify trends 🟡
+### D11 — Perform EDA to identify trends ✅
 
 | | |
 |---|---|
-| Lives in | `notebooks/01_eda.ipynb`; `notebooks/02_divergence.ipynb` and `notebooks/03_physics_features.ipynb` **not yet built** |
-| Evidence | `notebooks/01_eda.ipynb` runs top-to-bottom with `nbclient` (no errors); figures committed at `reports/figures/eda_monthly_climatology.png`, `eda_diurnal_profile.png`, `eda_stl_decomposition.png`, `eda_correlation_heatmap.png`. Notebook cell outputs are cleared before commit (CLAUDE.md §16) — the committed figures, not the notebook's own output cells, are what this row's evidence actually points at |
-| Outstanding | `02_divergence.ipynb` (model-vs-station divergence — see below) and `03_physics_features.ipynb` (physics-feature validation against PM2.5 spikes) were both scoped into this session (`docs/RUNBOOK.md` §2.1) but cut under a hard deadline. Neither is a design gap — both are next session's first job. See `docs/STATE.md` |
+| Lives in | `notebooks/01_eda.ipynb`, `notebooks/03_physics_features.ipynb`, `notebooks/04_model_analysis.ipynb`; `notebooks/02_divergence.ipynb` dropped explicitly (ADR-037) |
+| Evidence | All three notebooks run top-to-bottom with `nbclient` (no errors) and are committed **with outputs embedded** (ADR-036/ADR-037 — the rendered chart is the evidence, not a restatable side effect). Figures also committed separately at `reports/figures/eda_*.png`, `physics_*.png`, `model_analysis_*.png` |
+| Outstanding | None for this deliverable. `02_divergence.ipynb` is a named, documented drop (data precondition — AQICN's ledger is frozen — not a design gap), see `docs/STATE.md` / ADR-037 |
 
-**Done distinctively (so far):** four stated findings, each backed by a chart and by numbers the
-notebook itself computes and prints (never hand-typed — I5's "generated, not typed" discipline
+**Done distinctively:** `01_eda.ipynb` — four stated findings, each backed by a chart and by numbers
+the notebook itself computes and prints (never hand-typed — I5's "generated, not typed" discipline
 extended to EDA, not just the metrics report). The smog season is real and asymmetric between zones
 (Lahore's worst/best-month AQI ratio is ~2.2x against the capital's ~1.8x); the capital's winter
 diurnal profile has a genuinely different shape from its own rest-of-year profile and from Lahore's,
 flagged as a hypothesis rather than smoothed over; an STL decomposition shows residual variance is
 measurably higher in smog season for both zones (not just visually — the notebook computes and
 prints the season-conditioned residual std); and a full correlation ranking separates PM10/combustion
-co-pollutant collinearity from the weaker, more mechanistic dispersion signal, setting up the
-physics-feature validation that `03_physics_features.ipynb` still owes. The **model-vs-station
-divergence analysis** — quantifying how much CAMS reanalysis and real instruments disagree at these
-coordinates, novel for these coordinates and motivated by ADR-001 — is designed (`src/aqi/store/
-ledger.py` reads the ledger, `reports/metrics/coverage.json` now reports per-column null rates so a
-future join against the feature store won't silently treat a null as a real reading) but not yet
-written up as a notebook; the ledger holds too few rows today for any conclusion regardless (see
-`docs/STATE.md`).
+co-pollutant collinearity from the weaker, more mechanistic dispersion signal.
+
+`03_physics_features.ipynb` — the correlation-against-PM2.5-spikes validation `01_eda.ipynb` set up:
+5 of 6 physics features earn their place (`stagnation_index` r=0.518 strongest, `heating_season`
+spike-rate ratio 5.4x, `ventilation_index` r=−0.314, `crop_burning_season` ratio 2.5x,
+`inversion_proxy` r=0.170 weakest); `festival_flag` is tried-and-rejected (r=0.004, p=0.83, n=32),
+reported as a finding, not silently dropped.
+
+`04_model_analysis.ipynb` — closes the CLAUDE.md §12.4 segmentation gap (weekday/weekend, AQI band,
+residuals) that existed nowhere else. Headline finding: `lightgbm`'s MAE on Hazardous-band days
+(106.4) is worse than persistence's (78.0), despite winning in every other band — a blended average
+hides exactly this.
+
+The **model-vs-station divergence analysis** — quantifying how much CAMS reanalysis and real
+instruments disagree at these coordinates — remains designed but explicitly not written up: the
+`aqicn` ledger holds 4 rows, frozen since 2026-09-01 (checked fresh, not assumed from an older
+snapshot), so no paired forecast/observed comparison is possible yet. Recorded as a named drop
+(ADR-037), not a stub.
 
 ### D12 — A variety of models, statistical through deep learning ✅
 
@@ -371,7 +382,7 @@ prose CLAUDE.md I5 exists to prevent.**
 | Episode detection and lead time | D7, D14 | **Not built.** A simple precision/recall/F1 table at AQI>200 shipped instead (D7); the fuller CSI/false-alarm-ratio/lead-time metrics this row describes do not exist | `evaluation/episodes.py` — file does not exist |
 | Conformal prediction intervals with per-group coverage | D7, D9 | **Not built.** No interval, band or probability is computed anywhere in this codebase; D9's 3-day forecast page is a plain point forecast | `evaluation/conformal.py` — file does not exist |
 | Live public benchmark against AQICN, wins and losses | D7, D9 | **Not built.** The ledger holds under a day of history; a comparison built from that would violate I4. D9's Model card states the ledger's real window instead (ADR-027) | `pipelines/benchmark_pipeline.py` — file does not exist |
-| Punjab smog physics features | D2, D11 | **Delivered.** 7 physics features, built and unit-tested (D2); correlation-against-PM2.5-spikes validation (`03_physics_features.ipynb`) is still outstanding (D11) | `src/aqi/features/physics.py` |
+| Punjab smog physics features | D2, D11 | **Delivered.** 7 physics features, built and unit-tested (D2); correlation-against-PM2.5-spikes validation done (`03_physics_features.ipynb`, D11) — 5 of 6 tested features earn their place, `festival_flag` tried-and-rejected | `src/aqi/features/physics.py` |
 
 ## Deliberately not built
 

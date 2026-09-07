@@ -1240,6 +1240,18 @@ def tab_model() -> None:
                     if digits.isdigit()
                     else str(horizon_key)
                 )
+                # CLAUDE.md §12.4: RMSE alone has no reference an evaluator
+                # can check it against. scaled_skill (src/aqi/evaluation/
+                # metrics.py) is the same MASE/"% better than persistence"
+                # pair reports/final_report.md §6 shows — one artifact, one
+                # number, read here rather than recomputed.
+                skill = metrics.get("scaled_skill")
+                mase = skill.get("mase") if isinstance(skill, dict) else None
+                pct_better = (
+                    skill.get("pct_better_than_persistence")
+                    if isinstance(skill, dict)
+                    else None
+                )
                 rows.append(
                     {
                         "Model": model_name,
@@ -1247,6 +1259,8 @@ def tab_model() -> None:
                         "RMSE": regression.get("rmse"),
                         "MAE": regression.get("mae"),
                         "R²": regression.get("r2"),
+                        "MASE": mase,
+                        "% better than persistence": pct_better,
                     }
                 )
 
@@ -1259,9 +1273,13 @@ def tab_model() -> None:
         return
 
     table = pd.DataFrame(rows)
-    for col in ("RMSE", "MAE", "R²"):
+    for col in ("RMSE", "MAE", "R²", "MASE"):
         if col in table.columns:
             table[col] = pd.to_numeric(table[col], errors="coerce").round(3)
+    if "% better than persistence" in table.columns:
+        table["% better than persistence"] = pd.to_numeric(
+            table["% better than persistence"], errors="coerce"
+        ).round(1)
 
     best = None
     if "RMSE" in table.columns and not table["RMSE"].dropna().empty:

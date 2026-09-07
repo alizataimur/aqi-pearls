@@ -63,13 +63,13 @@ days built from fewer than 18 of 24 hours are `NaN` rather than a biased mean.
 
 | Feature | Definition | Status |
 |---|---|---|
-| `inversion_proxy` | `temperature_850hPa - temperature_2m` | `temperature_850hPa` sourced from historical-forecast (ADR-009) |
-| `stagnation_index` | rolling-24h `1/(1+wind) * 1/(1+BLH) * (humidity/100)` | Engineering-judgment composite — validate in `notebooks/03_physics_features.ipynb` (session 4) |
-| `ventilation_index` | `boundary_layer_height * wind_speed_10m` | Standard dispersion metric |
-| `boundary_layer_height_is_missing`, `stagnation_index_is_missing`, `ventilation_index_is_missing` | 1 when the underlying value is `NaN` | Session 4: BLH has a confirmed source gap (2024-01-01 to 2024-06-30, both zones — see `notebooks/03_physics_features.ipynb`). Rolling windows now require a full window (`min_periods=window`, no longer `1`), so a window straddling the gap is genuinely `NaN` rather than a near-empty-window value that looks like a real measurement; these flags carry that fact through whatever later imputation a non-tree model needs |
-| `crop_burning_season`, `crop_burning_day_count` | Oct 15 - Nov 30 flag + day count | From `local_date`, not a formula |
-| `festival_flag` | Eid al-Fitr, Eid al-Adha, Diwali, New Year | `conf/calendar_pk.yaml` — see its header for the moon-sighting caveat |
-| `heating_season` | Dec 1 - Feb 15, spanning New Year | |
+| `inversion_proxy` | `temperature_850hPa - temperature_2m` | `temperature_850hPa` sourced from historical-forecast (ADR-009). Validated in `notebooks/03_physics_features.ipynb`: weakest of the three continuous indices but still earns its place (r=0.170, p=6.4e-21) — daily-mean aggregation likely dilutes a sharper hourly/night-time effect |
+| `stagnation_index` | rolling-24h `1/(1+wind) * 1/(1+BLH) * (humidity/100)` | Validated in `notebooks/03_physics_features.ipynb` — strongest signal of the six physics/calendar features tested (r=0.518 against daily-max-AQI spikes, p=2.4e-180) |
+| `ventilation_index` | `boundary_layer_height * wind_speed_10m` | Standard dispersion metric. Validated: r=−0.314 against spikes, p=3.1e-61 |
+| `boundary_layer_height_is_missing`, `stagnation_index_is_missing`, `ventilation_index_is_missing` | 1 when the underlying value is `NaN` | Session 4: BLH has a confirmed source gap (2024-01-01 to 2024-06-30, both zones). Rolling windows now require a full window (`min_periods=window`, no longer `1`), so a window straddling the gap is genuinely `NaN` rather than a near-empty-window value that looks like a real measurement; these flags carry that fact through whatever later imputation a non-tree model needs |
+| `crop_burning_season`, `crop_burning_day_count` | Oct 15 - Nov 30 flag + day count | From `local_date`, not a formula. Validated in `notebooks/03_physics_features.ipynb`: spike rate 2.5x inside vs. outside the window (r=0.142, p=5.4e-15) |
+| `festival_flag` | Eid al-Fitr, Eid al-Adha, Diwali, New Year | `conf/calendar_pk.yaml` — see its header for the moon-sighting caveat. Validated in `notebooks/03_physics_features.ipynb`: **tried and rejected** — no detectable spike correlation (r=0.004, p=0.83, n=32 festival-days) |
+| `heating_season` | Dec 1 - Feb 15, spanning New Year | Validated in `notebooks/03_physics_features.ipynb`: strongest of the three calendar flags (spike rate 5.4x, r=0.459, p=6.2e-156) |
 | `wind_from_sector_{N,E,S,W}` | One-hot, meteorological "from" convention | |
 
 Every one of these is a candidate for the cut list (CLAUDE.md §1.3) if

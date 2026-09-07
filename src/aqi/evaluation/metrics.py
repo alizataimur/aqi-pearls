@@ -27,6 +27,43 @@ class RegressionMetrics:
 
 
 @dataclass(frozen=True)
+class ScaledSkillMetrics:
+    """MASE (CLAUDE.md §12.4) — the scale-free skill measure RMSE alone
+    can't give a reader: 19.5 AQI points means nothing without a reference.
+
+    Scaled against **persistence's own MAE on the identical test window**
+    (rung 0a, "the floor"), not the classic in-sample lag-1-differencing
+    denominator from the original MASE literature — this project's ladder
+    already computes persistence on the same split (I6), and a reader
+    comparing this to "% better than persistence" should see the same
+    reference twice, not two different ones. Documented here and in every
+    artifact/report that shows it, per this ADR's own warning that an
+    undocumented MASE is as uninterpretable as a bare RMSE.
+    """
+
+    mase: float
+    pct_better_than_persistence: float
+
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "mase": self.mase,
+            "pct_better_than_persistence": self.pct_better_than_persistence,
+        }
+
+
+def scaled_skill(mae_model: float, mae_persistence: float) -> ScaledSkillMetrics:
+    """MASE < 1 means this model beats persistence on this horizon; MASE > 1
+    means persistence would have been better. `pct_better_than_persistence`
+    is the same number restated as a percentage — positive is better,
+    negative is worse — meant to be what a report or dashboard leads with,
+    since "38% better than persistence" is legible in a way "MASE 0.62"
+    is not."""
+    mase = mae_model / mae_persistence
+    pct_better = (1.0 - mase) * 100.0
+    return ScaledSkillMetrics(mase=mase, pct_better_than_persistence=pct_better)
+
+
+@dataclass(frozen=True)
 class EpisodeMetrics:
     precision: float
     recall: float

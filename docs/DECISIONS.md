@@ -1277,3 +1277,118 @@ statistics *of 2026* cannot contain the 2025-26 test window ADR-016 already fixe
 champion and its metrics would not be comparable to any other number in this repo. Also rejected:
 switching `FEATURE_STORE_BACKEND` to `hopsworks` for this workflow specifically — ADR-034 already
 closed that door for the whole project, not just this workflow.
+
+---
+
+## ADR-036 — Notebook outputs: an explicit exception to "clear outputs before committing"
+
+**Status:** accepted · 2026-09-06
+
+CLAUDE.md §16 said, unconditionally, "clear outputs before committing" for every notebook. That is
+good hygiene for a dev-scratchpad notebook (diffs stay small, no stale output misleads a reviewer) —
+and it is wrong for the two notebooks the brief itself names as deliverable evidence. §2's own
+traceability matrix lists D11's evidence as **"Rendered notebook in report"** — not "notebook source
+in repo" — and §10 requires each physics feature to "earn its place... via correlation with PM2.5
+spikes," which is a *chart-and-verdict* claim, not a code claim. A notebook whose outputs are
+stripped before every commit cannot be that evidence; a marker (or this session, reading the repo
+fresh) opening `01_eda.ipynb` on GitHub would see empty code cells and have to take the four numbered
+findings in the markdown cells on faith, with no chart to check them against — exactly the "report
+numbers are generated, never typed" problem I5 exists to prevent, just applied to a notebook instead
+of `reports/metrics/`.
+
+**Checked before deciding, not assumed:** the two notebooks that actually exist or are being built
+this session (`01_eda.ipynb`, `03_physics_features.ipynb`) make no live network call and read only
+from the local Parquet feature store (`aqi.store.get_store()`) — no `AQICN_TOKEN`, no Hopsworks
+credential, nothing from `.env` appears anywhere in their source or (after re-execution) their output
+cells. Committing them with outputs carries no secret-leak risk this session could find; every output
+cell was still read before committing, not merely assumed clean by this reasoning alone.
+
+**Chosen:** `01_eda.ipynb` and `03_physics_features.ipynb` are re-executed top to bottom and committed
+**with outputs embedded** — the rendered chart is the evidence, not a restatable side effect. Every
+other notebook (none currently exist, but a future exploratory one might) keeps the old default:
+clear outputs before committing. CLAUDE.md §16 amended to state this as a named exception, not a
+silent one-off — a future session reading "clear outputs before committing" without this ADR would
+reasonably assume the newly-fat `01_eda.ipynb` diff was an accident.
+
+**Consequence — re-execution discipline, not a one-time exemption.** "Commit with outputs" only stays
+honest if the outputs are always current. Before either notebook is committed again, it must be
+re-executed top to bottom against the live feature store first (`nbclient`, matching how both were
+actually run) — a stale chart embedded in git is worse than no chart, since it looks like current
+evidence and isn't. This is a real cost §16's amendment states plainly, not a one-line "just don't
+clear outputs" instruction that undersells what upholding it actually requires.
+
+**Rejected:** keeping outputs cleared and relying on the four committed PNGs under `reports/figures/`
+alone as D11's evidence. That was this project's original position (`01_eda.ipynb`'s own session-4
+history describes the PNGs as "the durable evidence, saved to `reports/figures/`... the notebook's
+own output cells" being secondary) — reasonable when written, but it means the *notebook itself*,
+opened on GitHub, shows nothing, and D11's literal evidence cell names "Rendered notebook in report,"
+not "notebook plus separately-committed images." Also rejected: exporting to HTML instead of
+committing `.ipynb` outputs directly — GitHub already renders a `.ipynb` with outputs natively, so a
+parallel HTML export would be a second copy of the same evidence, drifting the same way any hand-typed
+number I5 warns against would.
+
+---
+
+## ADR-037 — Notebooks resolved: `02_divergence.ipynb` dropped explicitly, `03_physics_features.ipynb` and `04_model_analysis.ipynb` built
+
+**Status:** accepted · 2026-09-06
+
+Session 4 left three notebooks outstanding: `02_divergence.ipynb`, `03_physics_features.ipynb`, and
+(named later, session 5) `04_model_analysis.ipynb`. All three are resolved this session — two built,
+one dropped — rather than left listed-and-unbuilt.
+
+**`02_divergence.ipynb` — dropped, not built, not stubbed.** Checked fresh, not assumed from session
+4's 6-row snapshot: `read_ledger("aqicn")` returns exactly **4 rows**, spanning
+`2026-08-31T14:10:50Z` to `2026-09-01T04:59:08Z` — no new content in the five days since, confirmed by
+reading the raw JSONL directly (`data/ledger/aqicn/{islamabad,lahore}/2026-09.jsonl`): both cities'
+`captured_at_utc` is frozen at `2026-09-01T04:59:08Z`, and the forecast payload itself is dated
+months away from the capture date (Islamabad's block runs Feb 14–22 2026; Lahore's runs Feb 16–24
+2025) — evidence AQICN's own feed is serving stale cached forecast content, not a bug in this
+project's capture. The `observed` ledger, by contrast, is genuinely live (24 rows through
+2026-09-06T13:38Z) — so the freeze is specific to AQICN's forecast block, exactly the input
+`02_divergence.ipynb` needs to pair against later-observed values. A notebook joining 4 frozen rows
+against observations cannot support a divergence conclusion; CLAUDE.md's own instruction for this
+exact situation (§4, §12.4) is to name the cut and state why, not build a placeholder that looks like
+analysis. Recorded here, in `docs/STATE.md`, and in `reports/final_report.md` §9/§11 — restoring a
+live AQICN feed (or a second real-time provider) is the named precondition for building this notebook
+in a later session; the join/comparison logic itself is not the blocker, the data is.
+
+**`03_physics_features.ipynb` — built.** CLAUDE.md §10's correlation-against-PM2.5-spikes validation,
+across all six named features (`inversion_proxy`, `stagnation_index`, `ventilation_index`,
+`crop_burning_season`, `heating_season`, `festival_flag`), against a spike defined as daily max US AQI
+(NowCast) > 200 — the same hazardous-episode threshold used everywhere else in the project, not a new
+one. Five of six features clear a stated significance-and-magnitude bar (p < 0.01 and |r| ≥ 0.15, or
+a ≥1.5x spike-rate ratio for the 0/1 calendar flags); `festival_flag` does not (r=0.004, p=0.83,
+n=32 festival-days) and is documented as tried-and-rejected, per §10's own framing that a feature
+showing nothing is a finding, not a failure. Committed with outputs embedded, under the same exception
+ADR-036 states — verified no secret appears in any output cell (only correlation statistics and
+counts), verified it reads only from `ParquetFeatureStore`.
+
+**`04_model_analysis.ipynb` — built, not dropped.** The choice was genuine: `reports/metrics/
+ladder.json` and the report §6 table already carry per-horizon RMSE/MAE/R²/MASE, so a notebook
+repeating that table would be a duplicate, not new evidence — the case for dropping it. It was built
+instead because CLAUDE.md §12.4 explicitly requires **segmented** performance (weekday/weekend, AQI
+band) and residual diagnostics, and neither existed anywhere in the repo; per the prime directive
+(§1), a validated piece of evidence outranks not building it just because a table already exists.
+Per-row predictions are not persisted by `training_pipeline.py` (only aggregate scores are), so the
+notebook reconstructs them using the exact public functions the pipeline itself calls
+(`build_horizon_matrix`, `smog_season_split`, `PersistenceModel`, `SarimaxModel`, `LightGBMModel`) —
+never a re-derived split — and asserts its reconstructed MAE matches the committed `ladder.json`
+exactly (all cells, all horizons) before using the reconstruction for anything, so the notebook cannot
+silently drift from the registered numbers.
+
+Three findings came out of it, none previously visible in the blended metrics: (1) both real
+forecasters carry a **negative** residual bias (`sarimax` ≈ −6.5 AQI points flat across horizons,
+`lightgbm` ≈ −3.5 widening to −5.1 at D+3) — a systematic under-prediction that biases a hard-cutoff
+alert trigger toward missed alerts, not false alarms; (2) no meaningful weekday/weekend gap for any
+model, itself a finding (Punjab smog is not traffic-cycle-driven the way a weekly pattern would
+suggest); (3) **`lightgbm`'s MAE on Hazardous-band days (106.4) is worse than persistence's (78.0)** —
+the naive floor — despite winning in every other band, which is the concrete demonstration of §12.4's
+own claim that "an overall average hides exactly the performance people care about." Extended
+ADR-036's output-commit exception to this notebook for the same reason as the other two: the charts
+and the reconciliation-to-`ladder.json` assertion are the evidence, and stripping outputs would hide
+both.
+
+`docs/STATE.md`, `docs/DELIVERABLES.md`, `docs/feature_spec.md` and `docs/RUNBOOK.md` are all updated
+to match — every doc that listed the four-notebook layout or called these three "outstanding" now
+reflects the real, resolved status.

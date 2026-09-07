@@ -637,7 +637,9 @@ send an all-clear — shipped as specified, via a channel-agnostic `Notifier` Pr
 │   ├── alerts/                # rules, telegram
 │   └── serving/               # api, schemas
 ├── app/                       # streamlit_app.py, pages/, components/
-├── notebooks/                 # 01_eda, 02_divergence, 03_physics_features, 04_model_analysis
+├── notebooks/                 # 01_eda, 03_physics_features, 04_model_analysis (all with
+                              #   outputs, ADR-036/ADR-037). 02_divergence: dropped, not
+                              #   built — AQICN ledger frozen, see docs/DECISIONS.md
 ├── tests/                     # incl. test_no_leakage, test_store_parity, test_schemas
 ├── .github/workflows/
 ├── data/ledger/               # §6 — committed, append-only
@@ -652,10 +654,24 @@ send an all-clear — shipped as specified, via a channel-agnostic `Notifier` Pr
 Python 3.11+, `uv`, all versions pinned. **ruff** (lint + format), **mypy** on `src/`, **pytest** —
 all three in CI, all three green before merge. Config via **Pydantic Settings** from env + YAML; no
 magic numbers in code, so multi-city is a config change and never a code change. **Notebooks import
-from `src/`, never the reverse**; clear outputs before committing. Structured logging with a run id
-— print statements don't survive a CI run you need to debug at 2am. Seed everything; log seeds and
-git SHA in model metadata. Conventional commits, small and focused. Never commit data, secrets or
-`.ipynb` outputs.
+from `src/`, never the reverse.**
+
+**Notebook outputs — exception, not the rule (ADR-036, ADR-037).** Default: clear outputs before
+committing, same as any other dev artifact. Exception: the notebooks that are themselves a
+deliverable's evidence — `01_eda.ipynb` (D11's evidence is explicitly "rendered notebook in report",
+§2), `03_physics_features.ipynb` (§10's per-feature correlation verdicts), and
+`04_model_analysis.ipynb` (§12.4's segmented-performance and residual diagnostics) — commit **with**
+outputs, the plots embedded, because for these three files the rendered chart *is* the evidence that
+the analysis ran, not a restatable fact recoverable from source alone. Re-execute top to bottom
+immediately before each commit so the embedded images never drift from the code that produced them.
+Any other
+notebook — exploratory, a dev scratchpad, one that doesn't back a graded deliverable — still clears
+outputs and never commits secrets or data; check every output cell for both before committing either
+kind.
+
+Structured logging with a run id — print statements don't survive a CI run you need to debug at 2am.
+Seed everything; log seeds and git SHA in model metadata. Conventional commits, small and focused.
+Never commit data or secrets.
 
 ```bash
 make setup · test · lint          # uv sync; pytest incl. leakage test; ruff + mypy

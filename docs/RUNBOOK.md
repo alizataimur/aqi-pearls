@@ -163,10 +163,15 @@ ADR-009 is already decided in `STATE.md` — implement, don't reopen.
 Resumable chunked backfill to 2022-08-04 with a manifest. `pipelines/feature_pipeline.py` and the
 hourly workflow land here too — they close D1, which session 1 deliberately left partial.
 
-**4 — EDA and divergence.** `01_eda.ipynb` reading as a narrative, not a cell dump.
-`02_divergence.ipynb` quantifying CAMS-vs-station disagreement — that is D11's distinctive answer
-and it is genuinely novel for these coordinates. `03_physics_features.ipynb` validating each physics
-feature against PM2.5 spikes; the ones that show nothing are a *finding*, recorded as such.
+**4 — EDA and divergence.** `01_eda.ipynb` reading as a narrative, not a cell dump. **Resolved:**
+built, committed with outputs. `02_divergence.ipynb` quantifying CAMS-vs-station disagreement — that
+is D11's distinctive answer and it is genuinely novel for these coordinates. **Resolved: dropped
+explicitly (ADR-037)** — the AQICN ledger is frozen (4 rows, no new content since 2026-09-01), so no
+paired forecast/observed comparison is possible; revisit once the feed un-freezes or a second live
+provider exists. `03_physics_features.ipynb` validating each physics feature against PM2.5 spikes; the
+ones that show nothing are a *finding*, recorded as such. **Resolved:** built, committed with outputs —
+5 of 6 features earn their place, `festival_flag` is the one tried-and-rejected. `04_model_analysis.ipynb` (segmented performance, residuals — CLAUDE.md §12.4) also **resolved: built** this
+session, not part of the original session-4 scope but decided rather than left unbuilt (ADR-037).
 
 **5 — Baselines then the ladder.** All four baselines first, on the real split, published before
 anything else runs. Then rungs 1–5, each evaluated on the identical window before the next starts.

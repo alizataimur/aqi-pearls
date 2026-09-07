@@ -222,6 +222,19 @@ The festival calendar is tabulated in `conf/calendar_pk.yaml` rather than comput
 dates shift roughly eleven days a year against the Gregorian calendar and any formula silently
 mis-dates them across a multi-year backfill.
 
+**Each feature earning its place, not assumed.** `notebooks/03_physics_features.ipynb` tests every
+row above against daily-max-AQI spikes (>200, the same hazardous threshold used throughout this
+report) with a stated significance-and-magnitude bar (p<0.01 and |r|≥0.15, or a ≥1.5x spike-rate
+ratio for the 0/1 calendar flags). Five clear it: `stagnation_index` is the strongest signal found
+anywhere in this notebook (r=0.518), `heating_season` the strongest calendar flag (spike rate 5.4x
+inside the window vs. outside, r=0.459), `ventilation_index` (r=−0.314), `crop_burning_season`
+(spike rate 2.5x, r=0.142), and `inversion_proxy` (r=0.170 — weakest of the three continuous
+indices, plausibly because averaging its hourly signal to a daily mean dilutes what may be a
+sharper night-time effect). **`festival_flag` does not clear the bar** (r=0.004, p=0.83, n=32
+festival-days in four years of history) and is reported as tried-and-rejected rather than kept on
+intuition alone — CLAUDE.md's own framing that a feature showing nothing is a finding, not a
+failure.
+
 ### 4.3 Two source gaps in boundary-layer height
 
 Auditing per-column null rates rather than row counts revealed that boundary-layer height — the
@@ -284,32 +297,42 @@ days old and cannot share the historical test window.
 Generated from `reports/metrics/ladder.json` (test window: 2025-26 smog season, `n=7248` per
 horizon per rung).
 
-| Model | Horizon | RMSE | MAE | R² |
-|---|---|---|---|---|
-| Persistence | D+1 | 27.58 | 19.36 | 0.668 |
-| Persistence | D+2 | 31.69 | 22.93 | 0.563 |
-| Persistence | D+3 | 34.82 | 25.49 | 0.477 |
-| Seasonal-naive | D+1 | 38.80 | 27.96 | 0.343 |
-| Seasonal-naive | D+2 | 38.82 | 28.00 | 0.344 |
-| Seasonal-naive | D+3 | 39.14 | 28.30 | 0.339 |
-| Climatology | D+1 | 35.51 | 26.16 | 0.450 |
-| Climatology | D+2 | 35.51 | 26.19 | 0.451 |
-| Climatology | D+3 | 35.48 | 26.14 | 0.457 |
-| Ridge | D+1 | 23.17 | 17.96 | 0.766 |
-| Ridge | D+2 | 27.64 | 21.79 | 0.668 |
-| Ridge | D+3 | 30.46 | 23.68 | 0.600 |
-| Random Forest | D+1 | 23.63 | 16.93 | 0.757 |
-| Random Forest | D+2 | 31.38 | 23.15 | 0.571 |
-| Random Forest | D+3 | 37.22 | 27.83 | 0.402 |
-| SARIMAX | D+1 | 19.44 | 14.12 | 0.835 |
-| SARIMAX | D+2 | 19.45 | 14.14 | 0.835 |
-| SARIMAX | D+3 | 19.62 | 14.27 | 0.834 |
-| LightGBM | D+1 | 21.08 | 16.06 | 0.806 |
-| LightGBM | D+2 | 29.31 | 21.50 | 0.626 |
-| LightGBM | D+3 | 31.96 | 23.43 | 0.559 |
-| LSTM | D+1 | 21.41 | 16.42 | 0.800 |
-| LSTM | D+2 | 27.52 | 21.49 | 0.671 |
-| LSTM | D+3 | 30.86 | 24.39 | 0.589 |
+**RMSE in AQI points has no reference an evaluator can check it against; MASE does.** CLAUDE.md
+§12.4 specifies MASE for exactly this reason. **MASE is defined here as `MAE(model) /
+MAE(persistence)` on the identical horizon and test window** — scaled against persistence's own
+error, not the classic in-sample lag-1-differencing denominator from the original MASE literature,
+because persistence (rung 0a) is already computed on this exact split (I6) and a reader should see
+the same reference in both the MASE column and "% better than persistence," not two different ones
+(`src/aqi/evaluation/metrics.py::scaled_skill`, ADR-036's neighbour — see that function's docstring
+for the full reasoning). MASE < 1 beats persistence; MASE > 1 is worse. "% better than persistence"
+is `(1 - MASE) × 100` — the legible version, and the one this section leads with.
+
+| Model | Horizon | RMSE | MAE | R² | MASE | % better than persistence |
+|---|---|---|---|---|---|---|
+| Persistence | D+1 | 27.58 | 19.36 | 0.668 | 1.000 | +0.0% |
+| Persistence | D+2 | 31.69 | 22.93 | 0.563 | 1.000 | +0.0% |
+| Persistence | D+3 | 34.82 | 25.49 | 0.477 | 1.000 | +0.0% |
+| Seasonal-naive | D+1 | 38.80 | 27.96 | 0.343 | 1.444 | −44.4% |
+| Seasonal-naive | D+2 | 38.82 | 28.00 | 0.344 | 1.221 | −22.1% |
+| Seasonal-naive | D+3 | 39.14 | 28.30 | 0.339 | 1.110 | −11.0% |
+| Climatology | D+1 | 35.51 | 26.16 | 0.450 | 1.352 | −35.2% |
+| Climatology | D+2 | 35.51 | 26.19 | 0.451 | 1.142 | −14.2% |
+| Climatology | D+3 | 35.48 | 26.14 | 0.457 | 1.025 | −2.5% |
+| Ridge | D+1 | 23.17 | 17.96 | 0.766 | 0.928 | +7.2% |
+| Ridge | D+2 | 27.64 | 21.79 | 0.668 | 0.951 | +4.9% |
+| Ridge | D+3 | 30.46 | 23.68 | 0.600 | 0.929 | +7.1% |
+| Random Forest | D+1 | 23.63 | 16.93 | 0.757 | 0.875 | +12.5% |
+| Random Forest | D+2 | 31.38 | 23.15 | 0.571 | 1.010 | −1.0% |
+| Random Forest | D+3 | 37.22 | 27.83 | 0.402 | 1.092 | −9.2% |
+| SARIMAX | D+1 | 19.44 | 14.12 | 0.835 | 0.729 | +27.1% |
+| SARIMAX | D+2 | 19.45 | 14.14 | 0.835 | 0.617 | +38.3% |
+| SARIMAX | D+3 | 19.62 | 14.27 | 0.834 | 0.560 | +44.0% |
+| LightGBM | D+1 | 21.08 | 16.06 | 0.806 | 0.830 | +17.0% |
+| LightGBM | D+2 | 29.31 | 21.50 | 0.626 | 0.938 | +6.2% |
+| LightGBM | D+3 | 31.96 | 23.43 | 0.559 | 0.919 | +8.1% |
+| LSTM | D+1 | 21.41 | 16.42 | 0.800 | 0.848 | +15.2% |
+| LSTM | D+2 | 27.52 | 21.49 | 0.671 | 0.937 | +6.3% |
+| LSTM | D+3 | 30.86 | 24.39 | 0.589 | 0.957 | +4.3% |
 
 Baselines are first-class and appear in the same table on the same window. **If a naive baseline
 wins at some horizon, that is the published result.** A ladder where the most complex model wins
@@ -317,13 +340,17 @@ everywhere is a ladder to be suspicious of.
 
 **SARIMAX wins every horizon by a wide margin** (RMSE 19.44–19.62, versus low-to-mid 20s for the
 next-best model at D+1 and high 20s to low 30s by D+3) — the champion selection in §6.1 is not
-close. Every learned model beats every baseline at D+1 and D+2. **At D+3 that stops being true: Random
-Forest (RMSE 37.22) is beaten by two of the three baselines — Persistence (34.82) and Climatology
-(35.48).** Random Forest's error grows faster than every other rung's as the horizon lengthens
-(23.63 → 31.38 → 37.22, the steepest degradation on the table), while Ridge, LightGBM and LSTM all
-still beat every baseline at D+3. Per I6, that is reported as the result, not smoothed into "the
-baselines lost": on this window, at three days out, a scikit-learn Random Forest — one of D6's
-required rungs — is not worth deploying over the naive persistence forecast it was built to beat.
+close, and its skill number says the same thing more legibly: **27% better than persistence at D+1,
+widening to 44% better at D+3** — the only rung whose skill *improves* with horizon rather than
+decaying. Every learned model beats every baseline at D+1 and D+2. **At D+3 that stops being true:
+Random Forest (RMSE 37.22, MASE 1.092) is beaten by two of the three baselines — Persistence (34.82)
+and Climatology (35.48) — meaning Random Forest is 9% *worse* than the naive floor it was built to
+beat.** Random Forest's error grows faster than every other rung's as the horizon lengthens (23.63 →
+31.38 → 37.22, the steepest degradation on the table, and the only learned rung whose "% better than
+persistence" goes negative), while Ridge, LightGBM and LSTM all still beat every baseline at D+3. Per
+I6, that is reported as the result, not smoothed into "the baselines lost": on this window, at three
+days out, a scikit-learn Random Forest — one of D6's required rungs — is not worth deploying over
+the naive persistence forecast it was built to beat.
 
 ### 6.1 The champion cannot serve, and the model that serves is not the champion
 
@@ -383,6 +410,30 @@ rather than averaged away.
 The fuller episode treatment this project set out to publish — **lead time**, critical success
 index, false-alarm ratio by season, and a reliability diagram — was cut with conformal prediction
 and is described in §11.
+
+### 6.3 Segmented performance: where the average hides the story
+
+`notebooks/04_model_analysis.ipynb` reconstructs per-row predictions for persistence, SARIMAX and
+LightGBM using the exact split and building blocks `training_pipeline.py` calls, verified to
+reproduce `ladder.json`'s MAE exactly before drawing anything from it, then segments by weekday,
+by AQI band, and by residual direction.
+
+No model shows a meaningful weekday/weekend gap (largest difference under half an AQI point) —
+consistent with Punjab's smog drivers being synoptic and seasonal rather than traffic-cycle-driven.
+Both real forecasters carry a systematic **negative** residual bias: SARIMAX averages −6.5 AQI
+points across all three horizons, LightGBM averages −3.5 and widens to −5.1 by D+3. Given the alert
+trigger (§7.3) is a hard cutoff at 200, a consistent under-prediction biases toward **missed**
+alerts rather than false alarms — a concrete number for §10's limitations, not a vague caveat.
+
+The sharpest finding is by AQI band. Every model's error grows with severity, which is expected —
+but **LightGBM's MAE on Hazardous days (106.4) is worse than persistence's (78.0)**, the naive
+floor, despite LightGBM winning comfortably in every other band. A model that looks like a clear
+improvement in the blended per-horizon metrics is quietly worse than doing nothing on exactly the
+days an alert system exists to catch. SARIMAX does not show this failure (Hazardous-band MAE 64.6,
+best of the three), but its champion status rests on mean RMSE, not CLAUDE.md's real primary
+metric — median lead time on episodes — which is not yet computable (§11). This result is the
+clearest evidence in this project that the mean-RMSE substitute and the real primary metric could
+select different champions.
 
 ---
 
@@ -552,10 +603,18 @@ exactly that — not as 2 usable days.
 
 ## 9. Model-versus-station divergence *(D11)*
 
-The capture machinery is built and running: every ledger row pairs a station observation with the
-same city and hour a CAMS-derived feature-store value already exists for (§4). No dedicated
-divergence notebook was written — `notebooks/` holds only `01_eda.ipynb` — and any analysis run
-today would be limited by the same short window as §8.
+**`notebooks/02_divergence.ipynb` is dropped, explicitly, not merely unwritten.** The capture
+machinery is built and running: every ledger row pairs a station observation with the same city and
+hour a CAMS-derived feature-store value already exists for (§4). But both pinned AQICN stations are
+frozen (§3.3) — Islamabad's reading is 4,853 hours stale, Lahore's 13,564 hours stale, and rising
+every hour clock-starter runs, since neither station has advanced its own `time.iso` once — so there
+are, structurally, **zero paired (station, model) observations where the station side is a genuine
+reading**. A notebook computing "divergence" from that would not be measuring model-vs-instrument
+disagreement; it would be measuring model-vs-a-number-the-instrument-stopped-producing, which is not
+divergence, it is arithmetic against a stale constant. No stub notebook was created for it. It is
+recorded here, in `docs/DECISIONS.md`, and in `docs/STATE.md` as dropped for this reason, and its
+precondition — a live third station feed, or these two stations un-freezing — is carried forward in
+§11 rather than silently reappearing as "not started yet."
 
 The design intent: quantify how far CAMS reanalysis departs from instrument readings at these
 coordinates, which matters because training labels come from the former and truth from the latter.
@@ -679,7 +738,10 @@ the dependency bugs on that side would have happened anyway.
   a reliability diagram for the hazard probability.
 - **The benchmark at 30+ days**, which is the point at which §8 becomes a result, and the live
   scorecard page that renders it.
-- **The divergence analysis at scale**, once enough paired observations exist.
+- **The divergence analysis, at all** — dropped this session (§9), not merely deferred: both
+  pinned stations are frozen, so there are zero genuine paired observations to analyse regardless
+  of window length. Needs a live third-party feed (or these two stations un-freezing) before it is
+  buildable again, not more elapsed time on the current one.
 - **Deploying the FastAPI service** and pointing the dashboard at it, so D10's second half is real
   rather than latent.
 - **Hopsworks connected**, which removes the committed-artifact expedient and the class of
@@ -698,7 +760,7 @@ the dependency bugs on that side would have happened anyway.
 
 ## Appendix A — Decision log
 
-Reference `docs/DECISIONS.md`, **30 architecture decision records** (`ADR-001`–`ADR-033`, three
+Reference `docs/DECISIONS.md`, **33 architecture decision records** (`ADR-001`–`ADR-036`, three
 numbers reserved and unused), each stating what was chosen, what was rejected, and why.
 
 ## Appendix B — Reproducing this work

@@ -5,7 +5,8 @@
 
 **Stage:** 4 — Make it usable, in progress / Session 6 (serving, dashboard, explanations, alerts)
 — CLOSED (D9 ✅, D10 🟡, D13 ✅, D14 🟡)
-**Updated:** 2026-09-02 — D8's daily half built and confirmed green live, see below
+**Updated:** 2026-09-06 — Notebooks resolved (02_divergence dropped, 03/04 built) + MASE added
+project-wide, see below
 **Repo status:** public, pushed — https://github.com/alizataimur/aqi-pearls
 **Live dashboard:** <https://aqi-pearls-predictor.streamlit.app/> — confirmed rendering on the
 **live model path**, not the static-snapshot fallback, after ADR-033's data migration (ADR-031's fix
@@ -28,6 +29,75 @@ walk-forward folds must end with this season as the final test chunk.
 alert rule all run on the registered **LightGBM** model, not SARIMAX (`reports/metrics/ladder.json`'s
 champion by backtest RMSE) — SARIMAX's registered artifact only supports retrospective scoring, not
 genuine forward prediction. See ADR-025.
+
+---
+
+## Notebooks resolved: `02_divergence.ipynb` dropped, `03_physics_features.ipynb` + `04_model_analysis.ipynb` built; MASE added everywhere (ADR-036, ADR-037)
+
+**Updated:** 2026-09-06
+
+Three notebooks left outstanding since session 4/5 (`docs/STATE.md`'s own older entries below) are
+now resolved, plus a real §12.4 gap (MASE, never computed) closed project-wide. See ADR-037 for full
+reasoning; summary here.
+
+**`02_divergence.ipynb` — dropped explicitly, not stubbed.** Checked fresh: the `aqicn` ledger holds
+**4 rows**, frozen at `captured_at_utc = 2026-09-01T04:59:08Z` for both cities (confirmed via
+`read_ledger("aqicn")` and the raw JSONL — the forecast payload itself is dated months away from the
+capture date, evidence of a stale upstream feed, not a capture bug). The `observed` ledger is genuinely
+live (24 rows through 2026-09-06). No paired (forecast, later-observed) comparison is possible with a
+frozen forecast side, so the notebook is not built and not stubbed — recorded here, in ADR-037, and in
+`reports/final_report.md` §9/§11. Restoring a live AQICN feed (or a second real-time provider) is the
+named precondition for a later session.
+
+**`03_physics_features.ipynb` — built, committed with outputs (125,787 bytes).** All six §10 physics
+features tested for correlation with PM2.5 spikes (daily max AQI > 200, the project's existing
+hazardous-episode threshold). Five earn their place: `stagnation_index` (r=0.518, strongest),
+`heating_season` (spike rate 5.4x inside vs. outside the window, r=0.459), `ventilation_index`
+(r=−0.314), `crop_burning_season` (spike rate 2.5x, r=0.142), `inversion_proxy` (r=0.170, weakest —
+likely diluted by daily-mean aggregation of what may be a sharper hourly/night-time effect).
+`festival_flag` does not (r=0.004, p=0.83, n=32) — tried and rejected, documented as a finding.
+
+**`04_model_analysis.ipynb` — built, not dropped, committed with outputs (253,779 bytes).** Closes the
+CLAUDE.md §12.4 segmentation requirement (weekday/weekend, AQI band, residuals) that existed nowhere
+before. Reconstructs per-row predictions for persistence/sarimax/lightgbm using the same public
+functions `training_pipeline.py` calls, verified to match the committed `ladder.json` MAE exactly
+before drawing any conclusion from them. Three findings not visible in the blended metrics: both real
+forecasters under-predict systematically (`sarimax` ≈ −6.5 AQI points flat across horizons, `lightgbm`
+≈ −3.5 widening to −5.1 by D+3 — a bias toward missed alerts, not false alarms, given the alert
+trigger is a hard cutoff at 200); no meaningful weekday/weekend gap for any model; and
+**`lightgbm`'s MAE on Hazardous-band days (106.4) is worse than persistence's (78.0)**, the naive
+floor, despite winning in every other band — the clearest demonstration in this project of §12.4's own
+point that a blended average hides exactly the performance that matters.
+
+**MASE added project-wide (CLAUDE.md §12.4, never computed before this session).** Defined as
+`MAE(model) / MAE(persistence)` on the identical horizon/test window (`src/aqi/evaluation/
+metrics.py::scaled_skill`), plus "% better than persistence" as the legible headline. Wired into
+`training_pipeline.py` (every ladder entry now carries `scaled_skill` in `ladder.json`), the report §6
+table, and the Model Evaluation tab in `app/streamlit_app.py`. **D+1 top three:** SARIMAX +27.1%,
+LightGBM +17.0%, LSTM +15.2% better than persistence (`reports/metrics/ladder.json`, regenerated live
+— I5).
+
+`01_eda.ipynb` was also re-executed and committed **with outputs** this session (583,719 bytes, up
+from 24,046 — see ADR-036) — the four figures were already committed separately, but the notebook
+itself, opened on GitHub, previously showed empty code cells against D11's "rendered notebook" evidence
+requirement.
+
+CLAUDE.md §15/§16 corrected to match: the repo layout lists the real three built notebooks (not four),
+and §16 names all three (not two) in the output-commit exception. `docs/DELIVERABLES.md`,
+`docs/feature_spec.md`, `docs/RUNBOOK.md` updated to drop stale "outstanding"/"session 4"/"not yet
+built" framing for all three.
+
+### What's still outstanding after this session
+
+- **`02_divergence.ipynb` stays dropped** until AQICN's feed un-freezes or a second live provider
+  exists — not a design gap, a data precondition. Re-check `read_ledger("aqicn")`'s row count and
+  `captured_at_utc` spread periodically; the notebook itself needs no redesign once real pairs exist.
+- **The registry's champion is still selected by mean RMSE (SARIMAX), not CLAUDE.md §12.3's real
+  primary metric** — unchanged from session 5/ADR-021. `04_model_analysis.ipynb`'s Hazardous-band
+  finding (lightgbm losing to persistence specifically there) is one more concrete reason to re-run
+  promotion under the real rule once the episode/ledger machinery exists.
+- The instructor rubric-confirmation email and Hopsworks/HF account creation — still outstanding,
+  every session keeps flagging them.
 
 ---
 

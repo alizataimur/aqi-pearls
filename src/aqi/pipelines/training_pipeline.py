@@ -30,7 +30,11 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from aqi.config import REPO_ROOT, get_config
-from aqi.evaluation.metrics import episode_precision_recall_f1, regression_metrics
+from aqi.evaluation.metrics import (
+    episode_precision_recall_f1,
+    regression_metrics,
+    scaled_skill,
+)
 from aqi.models import baselines
 from aqi.models.dataset import (
     HorizonMatrix,
@@ -207,6 +211,18 @@ def run_training_pipeline() -> dict[str, Any]:
             print(f"[training_pipeline] horizon={horizon}h model={name}: scoring")
             score = _score(hm.test_y.to_numpy(), y_pred, n_train=n_train)
             ladder[name][f"h{horizon}"] = score
+            # CLAUDE.md §12.4: MASE, scaled against persistence's own MAE on
+            # this identical horizon/window (not a generic in-sample lag-1
+            # denominator — see evaluation/metrics.py::scaled_skill's
+            # docstring for why). Persistence is always the first model
+            # scored per horizon (it's the first entry `_run_baselines`
+            # contributes to `predictions`), so its own entry already exists
+            # in `ladder` by the time any other rung — or persistence
+            # itself, trivially — looks it up here.
+            persistence_mae = ladder["persistence"][f"h{horizon}"]["regression"]["mae"]
+            score["scaled_skill"] = scaled_skill(
+                score["regression"]["mae"], persistence_mae
+            ).to_dict()
             registry.register(
                 model_name=name,
                 horizon_hours=horizon,
@@ -224,6 +240,10 @@ def run_training_pipeline() -> dict[str, Any]:
 
         lstm_score = _score(lstm_true, lstm_pred, n_train=lstm_n_train)
         ladder["lstm"][f"h{horizon}"] = lstm_score
+        persistence_mae = ladder["persistence"][f"h{horizon}"]["regression"]["mae"]
+        lstm_score["scaled_skill"] = scaled_skill(
+            lstm_score["regression"]["mae"], persistence_mae
+        ).to_dict()
         registry.register(
             model_name="lstm",
             horizon_hours=horizon,

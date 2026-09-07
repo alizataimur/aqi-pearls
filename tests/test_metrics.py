@@ -5,7 +5,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from aqi.evaluation.metrics import episode_precision_recall_f1, regression_metrics
+from aqi.evaluation.metrics import (
+    episode_precision_recall_f1,
+    regression_metrics,
+    scaled_skill,
+)
 
 
 class TestRegressionMetrics:
@@ -68,3 +72,23 @@ class TestEpisodeMetrics:
         assert m.precision == 0.0
         assert m.recall == 0.0
         assert m.f1 == 0.0
+
+
+class TestScaledSkill:
+    def test_persistence_scored_against_itself_is_mase_one(self) -> None:
+        m = scaled_skill(mae_model=20.0, mae_persistence=20.0)
+        assert m.mase == pytest.approx(1.0)
+        assert m.pct_better_than_persistence == pytest.approx(0.0)
+
+    def test_model_beating_persistence_has_mase_below_one(self) -> None:
+        # Half persistence's error -> MASE 0.5, 50% better.
+        m = scaled_skill(mae_model=10.0, mae_persistence=20.0)
+        assert m.mase == pytest.approx(0.5)
+        assert m.pct_better_than_persistence == pytest.approx(50.0)
+
+    def test_model_worse_than_persistence_has_mase_above_one_and_negative_pct(
+        self,
+    ) -> None:
+        m = scaled_skill(mae_model=30.0, mae_persistence=20.0)
+        assert m.mase == pytest.approx(1.5)
+        assert m.pct_better_than_persistence == pytest.approx(-50.0)
