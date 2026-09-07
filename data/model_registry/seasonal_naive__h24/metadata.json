@@ -7,7 +7,7 @@
     "train_end": "2025-09-27T19:00:00+00:00"
   },
   "feature_group_version": 1,
-  "git_sha": "dc778a9c5d76e442a5274ed1bc1c81525f1c2ef9",
+  "git_sha": "3284d265d2bf2a82a0920549a9423d54c409df08",
   "feature_columns": [
     "daily_aqi (reconstructed from target_daily_aqi_h24, models.dataset.daily_aqi_by_date)"
   ],
@@ -26,9 +26,13 @@
       "n_predicted_positive_days": 1032,
       "n": 7248
     },
-    "n_train": 2304
+    "n_train": 2304,
+    "scaled_skill": {
+      "mase": 1.444406431748204,
+      "pct_better_than_persistence": -44.440643174820394
+    }
   },
   "champion": false,
-  "registered_at": "2026-09-06T07:56:06.223232+00:00",
+  "registered_at": "2026-09-07T08:18:16.581638+00:00",
   "artifact_path": "model.joblib"
 }
