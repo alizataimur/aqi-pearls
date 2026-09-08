@@ -2,21 +2,21 @@
   "current": {
     "capital": {
       "zone_id": "capital",
-      "time_utc": "2026-09-08T09:00:00+00:00",
-      "aqi_nowcast": 84.0,
-      "category_en": "Moderate",
-      "category_ur": "درمیانہ",
-      "pm2_5": 26.1,
-      "pm10": 41.1
+      "time_utc": "2026-09-08T14:00:00+00:00",
+      "aqi_nowcast": 120.0,
+      "category_en": "Unhealthy for Sensitive Groups",
+      "category_ur": "حساس افراد کے لیے مضر",
+      "pm2_5": 53.1,
+      "pm10": 72.4
     },
     "lahore": {
       "zone_id": "lahore",
-      "time_utc": "2026-09-08T09:00:00+00:00",
-      "aqi_nowcast": 125.0,
+      "time_utc": "2026-09-08T14:00:00+00:00",
+      "aqi_nowcast": 144.0,
       "category_en": "Unhealthy for Sensitive Groups",
       "category_ur": "حساس افراد کے لیے مضر",
-      "pm2_5": 45.2,
-      "pm10": 73.1
+      "pm2_5": 64.7,
+      "pm10": 86.4
     }
   },
   "forecast": {
@@ -27,21 +27,21 @@
         {
           "horizon_hours": 24,
           "target_local_date": "2026-09-09",
-          "predicted_aqi": 103.58160283839011,
+          "predicted_aqi": 109.16334808389392,
           "category_en": "Unhealthy for Sensitive Groups",
           "category_ur": "حساس افراد کے لیے مضر"
         },
         {
           "horizon_hours": 48,
           "target_local_date": "2026-09-10",
-          "predicted_aqi": 103.13147746298881,
+          "predicted_aqi": 100.95333233063769,
           "category_en": "Unhealthy for Sensitive Groups",
           "category_ur": "حساس افراد کے لیے مضر"
         },
         {
           "horizon_hours": 72,
           "target_local_date": "2026-09-11",
-          "predicted_aqi": 103.68482361096996,
+          "predicted_aqi": 106.19629088618916,
           "category_en": "Unhealthy for Sensitive Groups",
           "category_ur": "حساس افراد کے لیے مضر"
         }
@@ -54,21 +54,21 @@
         {
           "horizon_hours": 24,
           "target_local_date": "2026-09-09",
-          "predicted_aqi": 135.5932268326303,
+          "predicted_aqi": 147.04381140203915,
           "category_en": "Unhealthy for Sensitive Groups",
           "category_ur": "حساس افراد کے لیے مضر"
         },
         {
           "horizon_hours": 48,
           "target_local_date": "2026-09-10",
-          "predicted_aqi": 174.5887816093281,
+          "predicted_aqi": 167.21142533464524,
           "category_en": "Unhealthy",
           "category_ur": "مضر صحت"
         },
         {
           "horizon_hours": 72,
           "target_local_date": "2026-09-11",
-          "predicted_aqi": 176.7322003959443,
+          "predicted_aqi": 151.59990190369476,
           "category_en": "Unhealthy",
           "category_ur": "مضر صحت"
         }
@@ -80,7 +80,7 @@
       "24": {
         "zone_id": "capital",
         "horizon_hours": 24,
-        "predicted_aqi": 103.5816028383901,
+        "predicted_aqi": 109.16334808389394,
         "base_value": 128.5687387291519,
         "top_drivers": [
           {
@@ -88,134 +88,134 @@
             "feature_label_en": "PM2.5 (roll max 72h)",
             "feature_label_ur": "پی ایم 2.5 (roll max 72h)",
             "value": 82.7,
-            "shap_value": -5.324528910142372
-          },
-          {
-            "feature": "pm2_5_roll_max_24h",
-            "feature_label_en": "PM2.5 (roll max 24h)",
-            "feature_label_ur": "پی ایم 2.5 (roll max 24h)",
-            "value": 72.2,
-            "shap_value": -4.752781355073367
+            "shap_value": -4.84569024426103
           },
           {
             "feature": "fc_surface_pressure_h24",
             "feature_label_en": "fc surface pressure h24",
             "feature_label_ur": "fc surface pressure h24",
-            "value": 944.8,
-            "shap_value": -4.733981937912922
+            "value": 944.0,
+            "shap_value": -4.640097237903276
+          },
+          {
+            "feature": "pm2_5_roll_max_24h",
+            "feature_label_en": "PM2.5 (roll max 24h)",
+            "feature_label_ur": "پی ایم 2.5 (roll max 24h)",
+            "value": 73.1,
+            "shap_value": -4.503506255431921
+          },
+          {
+            "feature": "surface_pressure",
+            "feature_label_en": "surface pressure",
+            "feature_label_ur": "surface pressure",
+            "value": 944.1,
+            "shap_value": -4.233127757646447
           },
           {
             "feature": "pm2_5_roll_mean_24h",
             "feature_label_en": "PM2.5 (roll mean 24h)",
             "feature_label_ur": "پی ایم 2.5 (roll mean 24h)",
-            "value": 46.537499999999994,
-            "shap_value": 3.746424833976748
-          },
-          {
-            "feature": "surface_pressure",
-            "feature_label_en": "surface pressure",
-            "feature_label_ur": "surface pressure",
-            "value": 944.9,
-            "shap_value": -3.200270759966524
+            "value": 48.712500000000006,
+            "shap_value": 3.5974583796993365
           }
         ],
         "n_features": 218,
-        "briefing_en": "LightGBM predicts Islamabad's daily max AQI at 104 (Unhealthy for Sensitive Groups) in 1 day, driven mainly by PM2.5 (roll max 72h) and PM2.5 (roll max 24h).",
-        "briefing_ur": "لائٹ جی بی ایم کے مطابق اسلام آباد کا یومیہ زیادہ سے زیادہ AQI 1 دن میں 104 (حساس افراد کے لیے مضر) متوقع ہے، جس کی بڑی وجہ پی ایم 2.5 (roll max 72h) اور پی ایم 2.5 (roll max 24h) ہے۔",
+        "briefing_en": "LightGBM predicts Islamabad's daily max AQI at 109 (Unhealthy for Sensitive Groups) in 1 day, driven mainly by PM2.5 (roll max 72h) and fc surface pressure h24.",
+        "briefing_ur": "لائٹ جی بی ایم کے مطابق اسلام آباد کا یومیہ زیادہ سے زیادہ AQI 1 دن میں 109 (حساس افراد کے لیے مضر) متوقع ہے، جس کی بڑی وجہ پی ایم 2.5 (roll max 72h) اور fc surface pressure h24 ہے۔",
         "explainer_note": "Feature attribution from the gradient-boosted model (LightGBM), not SARIMAX. SARIMAX is the ladder's champion by backtest RMSE (reports/metrics/ladder.json) but is a state-space model, not a tree ensemble, and shap.TreeExplainer cannot explain it (docs/DECISIONS.md)."
       },
       "48": {
         "zone_id": "capital",
         "horizon_hours": 48,
-        "predicted_aqi": 103.13147746298887,
+        "predicted_aqi": 100.95333233063778,
         "base_value": 128.54576235319746,
         "top_drivers": [
+          {
+            "feature": "fc_surface_pressure_h48",
+            "feature_label_en": "fc surface pressure h48",
+            "feature_label_ur": "fc surface pressure h48",
+            "value": 944.2,
+            "shap_value": -8.52176268830615
+          },
           {
             "feature": "pm2_5_roll_max_72h",
             "feature_label_en": "PM2.5 (roll max 72h)",
             "feature_label_ur": "پی ایم 2.5 (roll max 72h)",
             "value": 82.7,
-            "shap_value": -8.043704046781974
-          },
-          {
-            "feature": "fc_surface_pressure_h48",
-            "feature_label_en": "fc surface pressure h48",
-            "feature_label_ur": "fc surface pressure h48",
-            "value": 945.3,
-            "shap_value": -7.828220312198267
-          },
-          {
-            "feature": "surface_pressure",
-            "feature_label_en": "surface pressure",
-            "feature_label_ur": "surface pressure",
-            "value": 944.9,
-            "shap_value": -3.7891012802866437
+            "shap_value": -8.065896581834512
           },
           {
             "feature": "fc_dew_point_2m_h48",
             "feature_label_en": "fc dew point 2m h48",
             "feature_label_ur": "fc dew point 2m h48",
-            "value": 22.4,
-            "shap_value": 3.633551213859061
+            "value": 22.8,
+            "shap_value": 3.8822831037034704
+          },
+          {
+            "feature": "surface_pressure",
+            "feature_label_en": "surface pressure",
+            "feature_label_ur": "surface pressure",
+            "value": 944.1,
+            "shap_value": -3.7730111660016314
           },
           {
             "feature": "o3_roll_min_72h",
             "feature_label_en": "o3 roll min 72h",
             "feature_label_ur": "o3 roll min 72h",
             "value": 0.0,
-            "shap_value": -3.3145807786538675
+            "shap_value": -3.334603308981859
           }
         ],
         "n_features": 218,
-        "briefing_en": "LightGBM predicts Islamabad's daily max AQI at 103 (Unhealthy for Sensitive Groups) in 2 days, driven mainly by PM2.5 (roll max 72h) and fc surface pressure h48.",
-        "briefing_ur": "لائٹ جی بی ایم کے مطابق اسلام آباد کا یومیہ زیادہ سے زیادہ AQI 2 دن میں 103 (حساس افراد کے لیے مضر) متوقع ہے، جس کی بڑی وجہ پی ایم 2.5 (roll max 72h) اور fc surface pressure h48 ہے۔",
+        "briefing_en": "LightGBM predicts Islamabad's daily max AQI at 101 (Unhealthy for Sensitive Groups) in 2 days, driven mainly by fc surface pressure h48 and PM2.5 (roll max 72h).",
+        "briefing_ur": "لائٹ جی بی ایم کے مطابق اسلام آباد کا یومیہ زیادہ سے زیادہ AQI 2 دن میں 101 (حساس افراد کے لیے مضر) متوقع ہے، جس کی بڑی وجہ fc surface pressure h48 اور پی ایم 2.5 (roll max 72h) ہے۔",
         "explainer_note": "Feature attribution from the gradient-boosted model (LightGBM), not SARIMAX. SARIMAX is the ladder's champion by backtest RMSE (reports/metrics/ladder.json) but is a state-space model, not a tree ensemble, and shap.TreeExplainer cannot explain it (docs/DECISIONS.md)."
       },
       "72": {
         "zone_id": "capital",
         "horizon_hours": 72,
-        "predicted_aqi": 103.68482361096994,
+        "predicted_aqi": 106.19629088618922,
         "base_value": 128.52364116097857,
         "top_drivers": [
-          {
-            "feature": "fc_surface_pressure_h72",
-            "feature_label_en": "fc surface pressure h72",
-            "feature_label_ur": "fc surface pressure h72",
-            "value": 947.6,
-            "shap_value": -8.703557262491
-          },
           {
             "feature": "pm2_5_roll_max_72h",
             "feature_label_en": "PM2.5 (roll max 72h)",
             "feature_label_ur": "پی ایم 2.5 (roll max 72h)",
             "value": 82.7,
-            "shap_value": -8.313726766600892
+            "shap_value": -8.370265835845958
+          },
+          {
+            "feature": "fc_surface_pressure_h72",
+            "feature_label_en": "fc surface pressure h72",
+            "feature_label_ur": "fc surface pressure h72",
+            "value": 945.8,
+            "shap_value": -8.351272243621693
+          },
+          {
+            "feature": "fc_dew_point_2m_h72",
+            "feature_label_en": "fc dew point 2m h72",
+            "feature_label_ur": "fc dew point 2m h72",
+            "value": 24.1,
+            "shap_value": 5.445313372492727
           },
           {
             "feature": "surface_pressure",
             "feature_label_en": "surface pressure",
             "feature_label_ur": "surface pressure",
-            "value": 944.9,
-            "shap_value": -4.990453120473592
+            "value": 944.1,
+            "shap_value": -5.010393927921012
           },
           {
             "feature": "doy_sin",
             "feature_label_en": "doy sin",
             "feature_label_ur": "doy sin",
             "value": -0.9231578729647039,
-            "shap_value": 4.182510906933526
-          },
-          {
-            "feature": "fc_dew_point_2m_h72",
-            "feature_label_en": "fc dew point 2m h72",
-            "feature_label_ur": "fc dew point 2m h72",
-            "value": 22.8,
-            "shap_value": 3.706939617898292
+            "shap_value": 4.267340632886809
           }
         ],
         "n_features": 218,
-        "briefing_en": "LightGBM predicts Islamabad's daily max AQI at 104 (Unhealthy for Sensitive Groups) in 3 days, driven mainly by fc surface pressure h72 and PM2.5 (roll max 72h).",
-        "briefing_ur": "لائٹ جی بی ایم کے مطابق اسلام آباد کا یومیہ زیادہ سے زیادہ AQI 3 دن میں 104 (حساس افراد کے لیے مضر) متوقع ہے، جس کی بڑی وجہ fc surface pressure h72 اور پی ایم 2.5 (roll max 72h) ہے۔",
+        "briefing_en": "LightGBM predicts Islamabad's daily max AQI at 106 (Unhealthy for Sensitive Groups) in 3 days, driven mainly by PM2.5 (roll max 72h) and fc surface pressure h72.",
+        "briefing_ur": "لائٹ جی بی ایم کے مطابق اسلام آباد کا یومیہ زیادہ سے زیادہ AQI 3 دن میں 106 (حساس افراد کے لیے مضر) متوقع ہے، جس کی بڑی وجہ پی ایم 2.5 (roll max 72h) اور fc surface pressure h72 ہے۔",
         "explainer_note": "Feature attribution from the gradient-boosted model (LightGBM), not SARIMAX. SARIMAX is the ladder's champion by backtest RMSE (reports/metrics/ladder.json) but is a state-space model, not a tree ensemble, and shap.TreeExplainer cannot explain it (docs/DECISIONS.md)."
       }
     },
@@ -223,54 +223,54 @@
       "24": {
         "zone_id": "lahore",
         "horizon_hours": 24,
-        "predicted_aqi": 135.5932268326306,
+        "predicted_aqi": 147.0438114020394,
         "base_value": 128.5687387291519,
         "top_drivers": [
+          {
+            "feature": "pm2_5_roll_max_24h",
+            "feature_label_en": "PM2.5 (roll max 24h)",
+            "feature_label_ur": "پی ایم 2.5 (roll max 24h)",
+            "value": 112.9,
+            "shap_value": 13.48446407748145
+          },
           {
             "feature": "pm2_5_roll_max_72h",
             "feature_label_en": "PM2.5 (roll max 72h)",
             "feature_label_ur": "پی ایم 2.5 (roll max 72h)",
             "value": 123.9,
-            "shap_value": 11.145956127894438
-          },
-          {
-            "feature": "pm2_5_roll_max_24h",
-            "feature_label_en": "PM2.5 (roll max 24h)",
-            "feature_label_ur": "پی ایم 2.5 (roll max 24h)",
-            "value": 97.8,
-            "shap_value": -5.000557565688163
+            "shap_value": 10.831660640914754
           },
           {
             "feature": "pm2_5_roll_max_6h",
             "feature_label_en": "PM2.5 (roll max 6h)",
             "feature_label_ur": "پی ایم 2.5 (roll max 6h)",
-            "value": 48.7,
-            "shap_value": -2.4176675654381596
+            "value": 64.7,
+            "shap_value": -5.897869468235276
           },
           {
             "feature": "wind_speed_10m_roll_mean_72h",
             "feature_label_en": "wind speed (roll mean 72h)",
             "feature_label_ur": "ہوا کی رفتار (roll mean 72h)",
-            "value": 4.858333333333333,
-            "shap_value": -2.1576502474664174
+            "value": 5.241666666666666,
+            "shap_value": -1.711719847420193
           },
           {
-            "feature": "pm2_5_roll_mean_24h",
-            "feature_label_en": "PM2.5 (roll mean 24h)",
-            "feature_label_ur": "پی ایم 2.5 (roll mean 24h)",
-            "value": 68.16250000000001,
-            "shap_value": 2.0945049374085354
+            "feature": "fc_dew_point_2m_h24",
+            "feature_label_en": "fc dew point 2m h24",
+            "feature_label_ur": "fc dew point 2m h24",
+            "value": 21.2,
+            "shap_value": 1.6081146961259787
           }
         ],
         "n_features": 218,
-        "briefing_en": "LightGBM predicts Lahore's daily max AQI at 136 (Unhealthy for Sensitive Groups) in 1 day, driven mainly by PM2.5 (roll max 72h) and PM2.5 (roll max 24h).",
-        "briefing_ur": "لائٹ جی بی ایم کے مطابق لاہور کا یومیہ زیادہ سے زیادہ AQI 1 دن میں 136 (حساس افراد کے لیے مضر) متوقع ہے، جس کی بڑی وجہ پی ایم 2.5 (roll max 72h) اور پی ایم 2.5 (roll max 24h) ہے۔",
+        "briefing_en": "LightGBM predicts Lahore's daily max AQI at 147 (Unhealthy for Sensitive Groups) in 1 day, driven mainly by PM2.5 (roll max 24h) and PM2.5 (roll max 72h).",
+        "briefing_ur": "لائٹ جی بی ایم کے مطابق لاہور کا یومیہ زیادہ سے زیادہ AQI 1 دن میں 147 (حساس افراد کے لیے مضر) متوقع ہے، جس کی بڑی وجہ پی ایم 2.5 (roll max 24h) اور پی ایم 2.5 (roll max 72h) ہے۔",
         "explainer_note": "Feature attribution from the gradient-boosted model (LightGBM), not SARIMAX. SARIMAX is the ladder's champion by backtest RMSE (reports/metrics/ladder.json) but is a state-space model, not a tree ensemble, and shap.TreeExplainer cannot explain it (docs/DECISIONS.md)."
       },
       "48": {
         "zone_id": "lahore",
         "horizon_hours": 48,
-        "predicted_aqi": 174.5887816093281,
+        "predicted_aqi": 167.21142533464524,
         "base_value": 128.54576235319746,
         "top_drivers": [
           {
@@ -278,87 +278,87 @@
             "feature_label_en": "PM2.5 (roll max 72h)",
             "feature_label_ur": "پی ایم 2.5 (roll max 72h)",
             "value": 123.9,
-            "shap_value": 20.698001259613658
-          },
-          {
-            "feature": "o3_roll_min_72h",
-            "feature_label_en": "o3 roll min 72h",
-            "feature_label_ur": "o3 roll min 72h",
-            "value": 19.0,
-            "shap_value": 6.528322676488968
+            "shap_value": 19.062878414750795
           },
           {
             "feature": "o3_roll_max_24h",
             "feature_label_en": "o3 roll max 24h",
             "feature_label_ur": "o3 roll max 24h",
-            "value": 255.0,
-            "shap_value": 6.230615509629593
+            "value": 254.0,
+            "shap_value": 6.029253390979824
           },
           {
             "feature": "pm2_5_roll_mean_72h",
             "feature_label_en": "PM2.5 (roll mean 72h)",
             "feature_label_ur": "پی ایم 2.5 (roll mean 72h)",
-            "value": 73.06111111111112,
-            "shap_value": -4.956593143214844
+            "value": 71.99861111111112,
+            "shap_value": -5.377266705201583
           },
           {
-            "feature": "surface_pressure",
-            "feature_label_en": "surface pressure",
-            "feature_label_ur": "surface pressure",
-            "value": 980.6,
-            "shap_value": 4.65394999917189
+            "feature": "pm2_5_roll_max_24h",
+            "feature_label_en": "PM2.5 (roll max 24h)",
+            "feature_label_ur": "پی ایم 2.5 (roll max 24h)",
+            "value": 112.9,
+            "shap_value": 4.977003313659609
+          },
+          {
+            "feature": "fc_dew_point_2m_h48",
+            "feature_label_en": "fc dew point 2m h48",
+            "feature_label_ur": "fc dew point 2m h48",
+            "value": 21.0,
+            "shap_value": 3.545564064751217
           }
         ],
         "n_features": 218,
-        "briefing_en": "LightGBM predicts Lahore's daily max AQI at 175 (Unhealthy) in 2 days, driven mainly by PM2.5 (roll max 72h) and o3 roll min 72h.",
-        "briefing_ur": "لائٹ جی بی ایم کے مطابق لاہور کا یومیہ زیادہ سے زیادہ AQI 2 دن میں 175 (مضر صحت) متوقع ہے، جس کی بڑی وجہ پی ایم 2.5 (roll max 72h) اور o3 roll min 72h ہے۔",
+        "briefing_en": "LightGBM predicts Lahore's daily max AQI at 167 (Unhealthy) in 2 days, driven mainly by PM2.5 (roll max 72h) and o3 roll max 24h.",
+        "briefing_ur": "لائٹ جی بی ایم کے مطابق لاہور کا یومیہ زیادہ سے زیادہ AQI 2 دن میں 167 (مضر صحت) متوقع ہے، جس کی بڑی وجہ پی ایم 2.5 (roll max 72h) اور o3 roll max 24h ہے۔",
         "explainer_note": "Feature attribution from the gradient-boosted model (LightGBM), not SARIMAX. SARIMAX is the ladder's champion by backtest RMSE (reports/metrics/ladder.json) but is a state-space model, not a tree ensemble, and shap.TreeExplainer cannot explain it (docs/DECISIONS.md)."
       },
       "72": {
         "zone_id": "lahore",
         "horizon_hours": 72,
-        "predicted_aqi": 176.7322003959443,
+        "predicted_aqi": 151.59990190369464,
         "base_value": 128.52364116097857,
         "top_drivers": [
-          {
-            "feature": "o3_roll_min_72h",
-            "feature_label_en": "o3 roll min 72h",
-            "feature_label_ur": "o3 roll min 72h",
-            "value": 19.0,
-            "shap_value": 12.220169358989347
-          },
-          {
-            "feature": "o3_roll_std_72h",
-            "feature_label_en": "o3 roll std 72h",
-            "feature_label_ur": "o3 roll std 72h",
-            "value": 82.86829752057969,
-            "shap_value": 11.831161277634344
-          },
-          {
-            "feature": "fc_surface_pressure_h72",
-            "feature_label_en": "fc surface pressure h72",
-            "feature_label_ur": "fc surface pressure h72",
-            "value": 982.2,
-            "shap_value": 5.803841740829804
-          },
-          {
-            "feature": "fc_dew_point_2m_h72",
-            "feature_label_en": "fc dew point 2m h72",
-            "feature_label_ur": "fc dew point 2m h72",
-            "value": 19.5,
-            "shap_value": 5.215088995070562
-          },
           {
             "feature": "o3_roll_max_72h",
             "feature_label_en": "o3 roll max 72h",
             "feature_label_ur": "o3 roll max 72h",
             "value": 260.0,
-            "shap_value": 4.657353994581719
+            "shap_value": 5.923070548184723
+          },
+          {
+            "feature": "fc_surface_pressure_h72",
+            "feature_label_en": "fc surface pressure h72",
+            "feature_label_ur": "fc surface pressure h72",
+            "value": 981.5,
+            "shap_value": 5.856724848024031
+          },
+          {
+            "feature": "fc_dew_point_2m_h72",
+            "feature_label_en": "fc dew point 2m h72",
+            "feature_label_ur": "fc dew point 2m h72",
+            "value": 20.3,
+            "shap_value": 4.262454229896314
+          },
+          {
+            "feature": "o3_roll_max_24h",
+            "feature_label_en": "o3 roll max 24h",
+            "feature_label_ur": "o3 roll max 24h",
+            "value": 254.0,
+            "shap_value": 3.793062782515214
+          },
+          {
+            "feature": "boundary_layer_height_roll_min_24h",
+            "feature_label_en": "boundary-layer height (roll min 24h)",
+            "feature_label_ur": "باؤنڈری لیئر کی اونچائی (roll min 24h)",
+            "value": 15.0,
+            "shap_value": 3.3549797120689835
           }
         ],
         "n_features": 218,
-        "briefing_en": "LightGBM predicts Lahore's daily max AQI at 177 (Unhealthy) in 3 days, driven mainly by o3 roll min 72h and o3 roll std 72h.",
-        "briefing_ur": "لائٹ جی بی ایم کے مطابق لاہور کا یومیہ زیادہ سے زیادہ AQI 3 دن میں 177 (مضر صحت) متوقع ہے، جس کی بڑی وجہ o3 roll min 72h اور o3 roll std 72h ہے۔",
+        "briefing_en": "LightGBM predicts Lahore's daily max AQI at 152 (Unhealthy) in 3 days, driven mainly by o3 roll max 72h and fc surface pressure h72.",
+        "briefing_ur": "لائٹ جی بی ایم کے مطابق لاہور کا یومیہ زیادہ سے زیادہ AQI 3 دن میں 152 (مضر صحت) متوقع ہے، جس کی بڑی وجہ o3 roll max 72h اور fc surface pressure h72 ہے۔",
         "explainer_note": "Feature attribution from the gradient-boosted model (LightGBM), not SARIMAX. SARIMAX is the ladder's champion by backtest RMSE (reports/metrics/ladder.json) but is a state-space model, not a tree ensemble, and shap.TreeExplainer cannot explain it (docs/DECISIONS.md)."
       }
     }
@@ -388,8 +388,8 @@
   },
   "ledger": {
     "start": "2026-08-31T14:10:50+00:00",
-    "end": "2026-09-08T09:35:08+00:00",
-    "row_count": 46
+    "end": "2026-09-08T14:28:25+00:00",
+    "row_count": 48
   },
   "health_guidance": {
     "Good": {
