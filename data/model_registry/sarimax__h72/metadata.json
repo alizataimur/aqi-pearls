@@ -7,7 +7,7 @@
     "train_end": "2025-09-27T19:00:00+00:00"
   },
   "feature_group_version": 1,
-  "git_sha": "b12df44169d1441eeb393e817a7c42ec2befb083",
+  "git_sha": "c91cb8f5cb03413b311ee223bddde6ab35d87229",
   "feature_columns": [
     "fc_temperature_2m_h72",
     "fc_boundary_layer_height_h72",
@@ -36,6 +36,6 @@
     }
   },
   "champion": true,
-  "registered_at": "2026-09-11T08:07:40.415756+00:00",
+  "registered_at": "2026-09-12T08:00:10.030957+00:00",
   "artifact_path": "model.joblib"
 }
