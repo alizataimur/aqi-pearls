@@ -136,3 +136,6 @@
 {"city_id": "lahore", "horizon_h": 24, "issued_at_utc": "2026-09-13T12:51:57+00:00", "model_version": "lightgbm@f444660d", "target_time_utc": "2026-09-13T19:00:00+00:00", "y_pred": 122.73013788170196, "y_true": null}
 {"city_id": "lahore", "horizon_h": 48, "issued_at_utc": "2026-09-13T12:51:57+00:00", "model_version": "lightgbm@f444660d", "target_time_utc": "2026-09-14T19:00:00+00:00", "y_pred": 124.51787399312279, "y_true": null}
 {"city_id": "lahore", "horizon_h": 72, "issued_at_utc": "2026-09-13T12:51:57+00:00", "model_version": "lightgbm@f444660d", "target_time_utc": "2026-09-15T19:00:00+00:00", "y_pred": 127.25266334989698, "y_true": null}
+{"city_id": "lahore", "horizon_h": 24, "issued_at_utc": "2026-09-13T17:04:32+00:00", "model_version": "lightgbm@f444660d", "target_time_utc": "2026-09-13T19:00:00+00:00", "y_pred": 127.2155926007025, "y_true": null}
+{"city_id": "lahore", "horizon_h": 48, "issued_at_utc": "2026-09-13T17:04:32+00:00", "model_version": "lightgbm@f444660d", "target_time_utc": "2026-09-14T19:00:00+00:00", "y_pred": 126.60883875411974, "y_true": null}
+{"city_id": "lahore", "horizon_h": 72, "issued_at_utc": "2026-09-13T17:04:32+00:00", "model_version": "lightgbm@f444660d", "target_time_utc": "2026-09-15T19:00:00+00:00", "y_pred": 130.8604144485961, "y_true": null}
