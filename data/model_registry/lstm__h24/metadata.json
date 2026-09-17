@@ -7,7 +7,7 @@
     "train_end": "2025-09-27T19:00:00+00:00"
   },
   "feature_group_version": 1,
-  "git_sha": "aa7645fc66c0170d38c6fbacb8510afe2c29d7f8",
+  "git_sha": "9edd5c4e643fba2b51cee821358d55caef55cd33",
   "feature_columns": [
     "pm2_5",
     "pm10",
@@ -42,6 +42,6 @@
     }
   },
   "champion": false,
-  "registered_at": "2026-09-16T08:36:03.553266+00:00",
+  "registered_at": "2026-09-17T08:40:24.406848+00:00",
   "artifact_path": "model.pt"
 }
