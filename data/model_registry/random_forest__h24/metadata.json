@@ -7,7 +7,7 @@
     "train_end": "2025-09-27T19:00:00+00:00"
   },
   "feature_group_version": 1,
-  "git_sha": "b55c2e9c71a1f58c42e24d572ba81b705a62f2fc",
+  "git_sha": "f5d02548dd4f9f51506f8eb3c4b3e18b2ac84ffd",
   "feature_columns": [
     "pm2_5",
     "pm10",
@@ -230,7 +230,7 @@
   ],
   "metrics": {
     "regression": {
-      "rmse": 23.627608028631215,
+      "rmse": 23.62760802863121,
       "mae": 16.933183622944085,
       "r2": 0.7565266157613861,
       "n": 7248
@@ -250,6 +250,6 @@
     }
   },
   "champion": false,
-  "registered_at": "2026-09-23T08:35:06.376607+00:00",
+  "registered_at": "2026-09-24T08:27:51.025844+00:00",
   "artifact_path": "model.joblib"
 }
