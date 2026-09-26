@@ -7,7 +7,7 @@
     "train_end": "2025-09-27T19:00:00+00:00"
   },
   "feature_group_version": 1,
-  "git_sha": "1c6519e03446b29da3633cec0c692cbe3d3cca41",
+  "git_sha": "b2ba1959f08a18a605f632a93223b5f8a9ed1581",
   "feature_columns": [
     "daily_aqi (reconstructed from target_daily_aqi_h24, models.dataset.daily_aqi_by_date)"
   ],
@@ -33,6 +33,6 @@
     }
   },
   "champion": false,
-  "registered_at": "2026-09-25T08:52:13.350504+00:00",
+  "registered_at": "2026-09-26T08:38:07.364367+00:00",
   "artifact_path": "model.joblib"
 }
