@@ -7,7 +7,7 @@
     "train_end": "2025-09-27T19:00:00+00:00"
   },
   "feature_group_version": 1,
-  "git_sha": "06c078483b4192fc33d6beef09071ecd375b3a86",
+  "git_sha": "9f77252737708c9dbd7f396ae8b5e22fd04d0653",
   "feature_columns": [
     "pm2_5",
     "pm10",
@@ -250,6 +250,6 @@
     }
   },
   "champion": false,
-  "registered_at": "2026-09-28T09:45:35.671792+00:00",
+  "registered_at": "2026-09-29T09:50:05.383051+00:00",
   "artifact_path": "model.joblib"
 }
