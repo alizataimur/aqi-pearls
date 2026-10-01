@@ -1,0 +1,3 @@
+{"city_id": "capital", "horizon_h": 24, "issued_at_utc": "2026-10-01T02:28:21+00:00", "model_version": "lightgbm@62e2220b", "target_time_utc": "2026-10-01T19:00:00+00:00", "y_pred": 101.58014189890997, "y_true": null}
+{"city_id": "capital", "horizon_h": 48, "issued_at_utc": "2026-10-01T02:28:21+00:00", "model_version": "lightgbm@62e2220b", "target_time_utc": "2026-10-02T19:00:00+00:00", "y_pred": 98.58654589001151, "y_true": null}
+{"city_id": "capital", "horizon_h": 72, "issued_at_utc": "2026-10-01T02:28:21+00:00", "model_version": "lightgbm@62e2220b", "target_time_utc": "2026-10-03T19:00:00+00:00", "y_pred": 103.79065864581187, "y_true": null}
