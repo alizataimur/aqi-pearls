@@ -7,7 +7,7 @@
     "train_end": "2025-09-27T19:00:00+00:00"
   },
   "feature_group_version": 1,
-  "git_sha": "82fec7396936d8772e420a94821384c8f0798882",
+  "git_sha": "6f323fa62013d9c13bda6f67fa6f837da1ab29a1",
   "feature_columns": [
     "pm2_5",
     "pm10",
@@ -231,7 +231,7 @@
   "metrics": {
     "regression": {
       "rmse": 23.62760802863121,
-      "mae": 16.93318362294408,
+      "mae": 16.933183622944085,
       "r2": 0.7565266157613861,
       "n": 7248
     },
@@ -245,11 +245,11 @@
     },
     "n_train": 18854,
     "scaled_skill": {
-      "mase": 0.8747556370388492,
-      "pct_better_than_persistence": 12.524436296115082
+      "mase": 0.8747556370388494,
+      "pct_better_than_persistence": 12.52443629611506
     }
   },
   "champion": false,
-  "registered_at": "2026-10-07T10:15:43.818086+00:00",
+  "registered_at": "2026-10-08T10:34:36.708298+00:00",
   "artifact_path": "model.joblib"
 }
