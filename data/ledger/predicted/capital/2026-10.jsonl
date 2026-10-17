@@ -217,3 +217,6 @@
 {"city_id": "capital", "horizon_h": 24, "issued_at_utc": "2026-10-17T01:34:41+00:00", "model_version": "lightgbm@9729e895", "target_time_utc": "2026-10-17T19:00:00+00:00", "y_pred": 87.16767525418007, "y_true": null}
 {"city_id": "capital", "horizon_h": 48, "issued_at_utc": "2026-10-17T01:34:41+00:00", "model_version": "lightgbm@9729e895", "target_time_utc": "2026-10-18T19:00:00+00:00", "y_pred": 96.27777676108771, "y_true": null}
 {"city_id": "capital", "horizon_h": 72, "issued_at_utc": "2026-10-17T01:34:41+00:00", "model_version": "lightgbm@9729e895", "target_time_utc": "2026-10-19T19:00:00+00:00", "y_pred": 97.28088929961365, "y_true": null}
+{"city_id": "capital", "horizon_h": 24, "issued_at_utc": "2026-10-17T06:14:36+00:00", "model_version": "lightgbm@9729e895", "target_time_utc": "2026-10-17T19:00:00+00:00", "y_pred": 93.23456456532585, "y_true": null}
+{"city_id": "capital", "horizon_h": 48, "issued_at_utc": "2026-10-17T06:14:36+00:00", "model_version": "lightgbm@9729e895", "target_time_utc": "2026-10-18T19:00:00+00:00", "y_pred": 102.97903157996689, "y_true": null}
+{"city_id": "capital", "horizon_h": 72, "issued_at_utc": "2026-10-17T06:14:36+00:00", "model_version": "lightgbm@9729e895", "target_time_utc": "2026-10-19T19:00:00+00:00", "y_pred": 104.23210515481325, "y_true": null}
