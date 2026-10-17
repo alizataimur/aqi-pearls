@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-16T08:14:45.343388+00:00",
-  "git_sha": "9729e895bfc6e6ddd558d6e1cc2f9c3dc4e3be1b",
+  "generated_at": "2026-10-17T07:51:38.473524+00:00",
+  "git_sha": "9f78401b22bef2ed8101be82b3b1c8425f9a2068",
   "feature_group": "aqi_features",
   "feature_group_version": 1,
   "split": {
@@ -367,8 +367,8 @@
       "h48": {
         "regression": {
           "rmse": 31.384125660951515,
-          "mae": 23.147221570702854,
-          "r2": 0.5713934573487867,
+          "mae": 23.14722157070285,
+          "r2": 0.5713934573487868,
           "n": 7248
         },
         "episode_at_200": {
