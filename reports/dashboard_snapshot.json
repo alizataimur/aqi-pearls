@@ -365,18 +365,18 @@
   },
   "metrics": {
     "champion_model": "sarimax",
-    "champion_mean_rmse": 19.50352085717213,
+    "champion_mean_rmse": 19.503520857574653,
     "mean_rmse_by_model": {
       "persistence": 31.362529834917336,
       "seasonal_naive": 38.91768718649578,
       "climatology": 35.500835841311634,
-      "sarimax": 19.50352085717213,
-      "ridge": 27.089539265856107,
+      "sarimax": 19.503520857574653,
+      "ridge": 27.089539265856118,
       "random_forest": 30.743477596724848,
       "lightgbm": 27.44865374554487,
-      "lstm": 26.59356758378657
+      "lstm": 26.593567488104924
     },
-    "generated_at": "2026-11-17T11:53:08.237976+00:00",
+    "generated_at": "2026-11-18T11:43:20.475732+00:00",
     "split": {
       "train_end": "2025-09-27T19:00:00+00:00",
       "test_start": "2025-09-30T19:00:00+00:00",
