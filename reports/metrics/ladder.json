@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-27T12:18:48.232801+00:00",
-  "git_sha": "1ce2eff6334e40b4796d5478a4a76d0fd93f5f5b",
+  "generated_at": "2026-11-28T11:47:36.288318+00:00",
+  "git_sha": "6e580172de1f31a64ea288ba17921caf91dc1758",
   "feature_group": "aqi_features",
   "feature_group_version": 1,
   "split": {
@@ -345,7 +345,7 @@
     "random_forest": {
       "h24": {
         "regression": {
-          "rmse": 23.627608028631215,
+          "rmse": 23.62760802863121,
           "mae": 16.93318362294408,
           "r2": 0.7565266157613861,
           "n": 7248
